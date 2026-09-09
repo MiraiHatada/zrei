@@ -1,0 +1,4 @@
+# use core.excludesfile for os-specific or editor-specific files
+
+zig-out/
+.zig-cache/
