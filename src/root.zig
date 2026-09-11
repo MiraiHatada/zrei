@@ -1,5 +1,5 @@
 const std = @import("std");
 
 test "dummy zrei test" {
-    try std.testing.expect(true);
+    _ = @import("dsp/Oscillator.zig");
 }
