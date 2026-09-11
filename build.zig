@@ -3,10 +3,20 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const zrei = b.addModule("zrei", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const main = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "zrei", .module = zrei },
+        },
     });
     const main_compile = b.addExecutable(.{
         .name = "zrei",
@@ -17,8 +27,13 @@ pub fn build(b: *std.Build) void {
     main_run.step.dependOn(b.getInstallStep());
     if (b.args) |args| main_run.addArgs(args);
 
+    const test_zrei = b.addTest(.{
+        .name = "zrei_test",
+        .root_module = zrei,
+    });
+    const test_zrei_run = b.addRunArtifact(test_zrei);
     const test_main = b.addTest(.{
-        .name = "zrei_test_main",
+        .name = "main_test",
         .root_module = main,
     });
     const test_main_run = b.addRunArtifact(test_main);
@@ -27,9 +42,11 @@ pub fn build(b: *std.Build) void {
     run_cmd.dependOn(&main_run.step);
 
     const test_cmd = b.step("test", "run all specs");
+    test_cmd.dependOn(&test_zrei_run.step);
     test_cmd.dependOn(&test_main_run.step);
 
     const check_cmd = b.step("check", "check if it compiles (zls)");
     check_cmd.dependOn(&main_compile.step);
+    check_cmd.dependOn(&test_zrei.step);
     check_cmd.dependOn(&test_main.step);
 }
