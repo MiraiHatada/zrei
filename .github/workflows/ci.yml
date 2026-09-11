@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cache zig
+        id: cache-zig
+        uses: actions/cache@v4
+        with:
+          path: /opt/zig
+          key: zig-x86_64-linux-0.16.0
+
+      - name: install zig
+        if: steps.cache-zig.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/zig
+          curl -sSL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | sudo tar -xJ --strip-components=1 -C /opt/zig
+
+      - name: add zig to path
+        run: echo "/opt/zig" >> "$GITHUB_PATH"
+
+      - name: check format
+        run: zig fmt --check .
+
+      - name: check compile
+        run: zig build check --summary all
+
+      - name: run tests
+        run: zig build test --summary all
+
+      - name: run main
+        run: zig build run --summary all
