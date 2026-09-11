@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: cache zig
         id: cache-zig
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /opt/zig
           key: zig-x86_64-linux-0.16.0
