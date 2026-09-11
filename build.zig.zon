@@ -1,0 +1,11 @@
+.{
+    .name = .zrei,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.16.0",
+    .paths = .{
+        "src",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .fingerprint = 0x5e5765c4d707f2ff,
+}
