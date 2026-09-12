@@ -132,11 +132,11 @@ test "writePcm16: write 16bit mono wav" {
     try testing.expectEqualStrings("data", buffer[36..40]);
 
     // riff_size = 36 + 6 bytes, data_size = 6 bytes
-    try testing.expectEqual(@as(u32, 42), std.mem.readInt(u32, buffer[4..8], .little));
-    try testing.expectEqual(@as(u32, 6), std.mem.readInt(u32, buffer[40..44], .little));
+    try testing.expectEqual(42, std.mem.readInt(u32, buffer[4..8], .little));
+    try testing.expectEqual(6, std.mem.readInt(u32, buffer[40..44], .little));
 
     // quantized samples
-    try testing.expectEqual(@as(i16, 0), std.mem.readInt(i16, buffer[44..46], .little));
-    try testing.expectEqual(@as(i16, 32767), std.mem.readInt(i16, buffer[46..48], .little));
-    try testing.expectEqual(@as(i16, -32767), std.mem.readInt(i16, buffer[48..50], .little));
+    try testing.expectEqual(0, std.mem.readInt(i16, buffer[44..46], .little));
+    try testing.expectEqual(32767, std.mem.readInt(i16, buffer[46..48], .little));
+    try testing.expectEqual(-32767, std.mem.readInt(i16, buffer[48..50], .little));
 }
