@@ -46,7 +46,7 @@ pub const Header = struct {
         assert(frame_count <= max_frames);
 
         const data_size: u32 = @intCast(frame_count * block_align);
-        const riff_size: u32 = 36 + data_size; // sizeof(the_wave ... data_size) = 36
+        const riff_size: u32 = 36 + data_size; // sizeof("WAVE" ... data_size) = 36
         return .{
             .riff_size = riff_size,
             .format_code = .pcm,
