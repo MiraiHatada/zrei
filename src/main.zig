@@ -47,7 +47,7 @@ fn runRender(io: Io, allocator: Allocator, args: []const []const u8) !u8 {
     _ = args;
     const out_option: ?[]const u8 = null;
     const filepath = ret: {
-        // chck if absolute path?
+        // gotta check if absolute path?
         break :ret out_option orelse "out.wav";
     };
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});

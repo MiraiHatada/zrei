@@ -1,9 +1,9 @@
-//! simple oscilator
+//! simple oscillator
 const Oscillator = @This();
 
 const std = @import("std");
 
-/// phase accumlator, 0 ≤ phase < 1
+/// phase accumulator, 0 ≤ phase < 1
 phase: f64,
 /// sample rate (sample per sec)
 sample_rate: f64,
