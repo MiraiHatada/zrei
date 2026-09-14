@@ -30,7 +30,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cmd) {
         .render => {
-            return try runRender(io, init.gpa, args[2..]);
+            return try runRender(io, args[2..]);
         },
     }
 }
@@ -43,14 +43,10 @@ const Command = enum {
     }
 };
 
-fn runRender(io: Io, allocator: Allocator, args: []const []const u8) !u8 {
+fn runRender(io: Io, args: []const []const u8) !u8 {
     _ = args;
-    _ = allocator;
-    const out_option: ?[]const u8 = null;
-    const filepath = ret: {
-        // gotta check if absolute path?
-        break :ret out_option orelse "out.wav";
-    };
+    const out_option: ?[]const u8 = null; // fixme later
+    const filepath = out_option orelse "out.wav";
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});
     defer file.close(io);
     var file_buf: [1024]u8 = undefined;
