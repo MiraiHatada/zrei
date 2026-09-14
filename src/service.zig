@@ -9,19 +9,27 @@ const assert = std.debug.assert;
 
 pub const EncodeError = Io.Writer.Error || Allocator.Error;
 
-pub fn encode(sink: *Io.Writer, sec: u16, allocator: Allocator) EncodeError!void {
+pub fn encode(sink: *Io.Writer, sec: u16) EncodeError!void {
     const sample_rate: f64 = comptime 48000.0;
     const fmt: zrei.format.wav.Format = .{
         .bits_per_sample = 16,
         .channels = 1,
         .sample_rate = sample_rate,
     };
-    const buffer_size = @as(usize, @intFromFloat(sample_rate)) * sec;
-    const buffer = try allocator.alloc(f32, buffer_size);
-    defer allocator.free(buffer);
+    const samples_size = @as(usize, @intFromFloat(sample_rate)) * sec;
+    try zrei.format.wav.writeHeader(sink, fmt, @intCast(samples_size));
+
+    // we use 2KB stack buffer here, which is way less than ordinary L1 data cache
+    // on paper it allows 16+ polyphony without a cache miss but you know life is not that easy
+    var buffer: [512]f32 = undefined;
+    var offset: usize = 0;
     var osc: Oscillator = .init(sample_rate);
-
-    osc.render(buffer, 440.0);
-
-    try zrei.format.wav.writePcm16(sink, fmt, buffer);
+    while (offset < samples_size) {
+        const chunk_size = @min(samples_size - offset, buffer.len);
+        const chunk: []f32 = buffer[0..chunk_size];
+        osc.render(chunk, 440.0);
+        try zrei.format.wav.writePcm16(sink, chunk);
+        offset += chunk_size;
+    }
+    assert(offset == samples_size);
 }

@@ -94,15 +94,22 @@ inline fn quantize16i(sample: f32) i16 {
     return @intFromFloat(@round(clamped));
 }
 
-/// quantize `samples` into i16 and write it to `sink`
-pub fn writePcm16(sink: *Io.Writer, format: Format, samples: []const f32) Io.Writer.Error!void {
+/// write RIFF WAV header in little endian to `sink`
+///
+/// * assume `format.channels` > 0
+/// * assume `samples_size` is divisible by `format.channels`
+pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: u32) Io.Writer.Error!void {
     assert(format.channels > 0);
-    assert(format.bits_per_sample == 16);
-    assert(samples.len % format.channels == 0);
-    const header: Header = .init(format, samples.len / format.channels);
+    assert(samples_size % format.channels == 0);
+    const header: Header = .init(format, samples_size / format.channels);
     try header.write(sink);
+}
 
-    var chunk_buf: [256]i16 = undefined;
+/// quantize `samples` into i16 and write it to `sink`
+///
+/// write out in one loop when `samples.len <= 512`
+pub fn writePcm16(sink: *Io.Writer, samples: []const f32) Io.Writer.Error!void {
+    var chunk_buf: [512]i16 = undefined;
     var offset: usize = 0;
     while (offset < samples.len) {
         const chunk_size = @min(samples.len - offset, chunk_buf.len);
@@ -124,7 +131,8 @@ test "writePcm16: write 16bit mono wav" {
     var buffer: [44 + 6]u8 = undefined;
     var sink: Io.Writer = .fixed(&buffer);
 
-    try writePcm16(&sink, .{}, &.{ 0.0, 1.0, -1.0 });
+    try writeHeader(&sink, .{}, 3);
+    try writePcm16(&sink, &.{ 0.0, 1.0, -1.0 });
 
     // headers
     try testing.expectEqualStrings("RIFF", buffer[0..4]);

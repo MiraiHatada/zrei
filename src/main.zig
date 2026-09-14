@@ -45,17 +45,19 @@ const Command = enum {
 
 fn runRender(io: Io, allocator: Allocator, args: []const []const u8) !u8 {
     _ = args;
+    _ = allocator;
     const out_option: ?[]const u8 = null;
     const filepath = ret: {
         // gotta check if absolute path?
         break :ret out_option orelse "out.wav";
     };
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});
+    defer file.close(io);
     var file_buf: [1024]u8 = undefined;
     var writer = file.writerStreaming(io, &file_buf);
 
     // process encode
-    service.encode(&writer.interface, 5, allocator) catch |err| switch (err) {
+    service.encode(&writer.interface, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
         else => |e| return e,
     };
