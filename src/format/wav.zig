@@ -33,7 +33,7 @@ pub const Header = struct {
 
     /// initialize RIFF WAV header struct
     ///
-    /// * assert 4GB limit including data
+    /// * assumes 4GB limit including data
     /// * `format.bits_per_sample` must be divisible by 8
     pub fn init(format: Format, frame_count: usize) Header {
         assert(format.channels > 0);
@@ -96,8 +96,8 @@ inline fn quantize16i(sample: f32) i16 {
 
 /// write RIFF WAV header in little endian to `sink`
 ///
-/// * assume `format.channels` > 0
-/// * assume `samples_size` is divisible by `format.channels`
+/// * assumes `format.channels` > 0
+/// * `samples_size` must be divisible by `format.channels`
 pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: u32) Io.Writer.Error!void {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);

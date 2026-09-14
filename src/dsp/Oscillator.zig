@@ -19,7 +19,7 @@ pub fn init(sample_rate: f64) Oscillator {
 
 /// sine wave for now
 ///
-/// assume `frequency` is lower than the nyquist frequency
+/// assumes `frequency` is lower than the nyquist frequency
 pub fn render(self: *Oscillator, buffer: []f32, frequency: f64) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
