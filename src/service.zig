@@ -1,7 +1,5 @@
 const zrei = @import("zrei");
-const dsp = zrei.dsp;
-const Oscillator = dsp.Oscillator;
-const format = zrei.format;
+const Oscillator = zrei.dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
@@ -13,7 +11,7 @@ pub const EncodeError = Io.Writer.Error || Allocator.Error;
 
 pub fn encode(sink: *Io.Writer, sec: u16, allocator: Allocator) EncodeError!void {
     const sample_rate: f64 = comptime 48000.0;
-    const fmt: format.wav.Format = .{
+    const fmt: zrei.format.wav.Format = .{
         .bits_per_sample = 16,
         .channels = 1,
         .sample_rate = sample_rate,
@@ -25,5 +23,5 @@ pub fn encode(sink: *Io.Writer, sec: u16, allocator: Allocator) EncodeError!void
 
     osc.render(buffer, 440.0);
 
-    try format.wav.writePcm16(sink, fmt, buffer);
+    try zrei.format.wav.writePcm16(sink, fmt, buffer);
 }
