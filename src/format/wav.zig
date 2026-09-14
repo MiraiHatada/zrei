@@ -97,7 +97,7 @@ inline fn quantize16i(sample: f32) i16 {
 ///
 /// * assumes `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: u32) Io.Writer.Error!void {
+pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: usize) Io.Writer.Error!void {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
     const header: Header = .init(format, samples_size / format.channels);
