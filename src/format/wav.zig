@@ -85,11 +85,10 @@ pub const Header = struct {
 inline fn quantize16i(sample: f32) i16 {
     if (std.math.isNan(sample)) return 0;
     const i16_max_float: f32 = comptime @floatFromInt(std.math.maxInt(i16));
-    const i16_min_float: f32 = comptime @floatFromInt(std.math.minInt(i16));
     // de-normalize phase
     const scaled = sample * i16_max_float;
     // compress beyond maximum and minimum (error values)
-    const clamped = std.math.clamp(scaled, i16_min_float, i16_max_float);
+    const clamped = std.math.clamp(scaled, -i16_max_float, i16_max_float);
     // prefer round to floor
     return @intFromFloat(@round(clamped));
 }
