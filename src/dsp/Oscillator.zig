@@ -18,10 +18,13 @@ pub fn init(sample_rate: f64) Oscillator {
 }
 
 /// sine wave for now
+///
+/// assume `frequency` is lower than the nyquist frequency
 pub fn render(self: *Oscillator, buffer: []f32, frequency: f64) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
-    // frequency ≤ nyquest frequency
+    // frequency < nyquist_frequency
+    // an interesting behaviour where dt = 0.5; sine wave always points to 0
     assert(dt < 0.5);
 
     for (buffer) |*sample| {
@@ -49,6 +52,6 @@ test "render sine wave" {
 
     // all samples are within [-1.0, 1.0]
     for (buffer) |s| {
-        try testing.expect(s >= -1.0 and s <= 1.0);
+        try testing.expect(-1.0 <= s and s <= 1.0);
     }
 }
