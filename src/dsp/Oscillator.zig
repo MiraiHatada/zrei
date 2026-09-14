@@ -2,6 +2,7 @@
 const Oscillator = @This();
 
 const std = @import("std");
+const assert = std.debug.assert;
 
 /// phase accumulator, 0 ≤ phase < 1
 phase: f64,
@@ -20,6 +21,8 @@ pub fn init(sample_rate: f64) Oscillator {
 pub fn render(self: *Oscillator, buffer: []f32, frequency: f64) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
+    // frequency ≤ nyquest frequency
+    assert(dt < 0.5);
 
     for (buffer) |*sample| {
         // sine wave doesn't have a jump
