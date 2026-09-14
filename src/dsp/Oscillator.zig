@@ -8,6 +8,14 @@ phase: f64,
 /// sample rate (sample per sec)
 sample_rate: f64,
 
+/// `sample_rate` typically 44.1kHz or 48kHz
+pub fn init(sample_rate: f64) Oscillator {
+    return .{
+        .phase = 0.0,
+        .sample_rate = sample_rate,
+    };
+}
+
 /// sine wave for now
 pub fn render(self: *Oscillator, buffer: []f32, frequency: f64) void {
     // delta phi : how fast phase increases
