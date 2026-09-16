@@ -15,7 +15,7 @@ pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
         .sample_rate = sample_rate,
     };
     const samples_size = @as(usize, sample_rate) * sec;
-    try zrei.format.wav.writeHeader(sink, fmt, samples_size);
+    _ = try zrei.format.wav.writeHeader(sink, fmt, samples_size);
 
     // we use 2KB stack buffer here, which is way less than ordinary L1 data cache
     // on paper it allows 16+ polyphony without a cache miss but you know life is not that easy
