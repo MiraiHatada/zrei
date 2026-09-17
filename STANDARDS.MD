@@ -96,6 +96,13 @@ cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/
 - 適宜: Shell領域でのAllocatorフィールド保持 
   - CLI引数パーサーなど、Shell側の独立したライフタイムを持つ状態機械はアロケータを保持してよい。
 
+- 適宜: 長さがコンパイルタイム既知で小さい配列の値返し
+  - ZigのRVOにより 1→レジスタに乗るか 2→呼び出し元スタックに直接書かれる(たくさんのメリットがある)。
+    ```zig
+    fn crcgen(object: Object) [16]u8 // レジスタに乗る
+    fn encode(data: Data) [64]u8     // 呼び出し元スタックに書かれる
+    ```
+
 ## error handling
 
 - [エラーの分類](https://joeduffyblog.com/2016/02/07/the-error-model/#bugs-arent-recoverable-errors)を徹底する:
