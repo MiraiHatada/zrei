@@ -115,25 +115,25 @@ pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: usize) Io.Wri
     return .ok;
 }
 
-/// quantize `samples` into i16 and write it to `sink`
+/// encode `samples` into i16 (quantized) and copy it to `dest`
 ///
-/// write out in one loop when `samples.len <= 512`
-pub fn writePcm16(sink: *Io.Writer, samples: []const f32) Io.Writer.Error!void {
+/// * assume `samples.len` <= 512
+/// * assume `dest.len` is at least twice `source.len`
+pub fn encodePcm16(dest: []u8, samples: []const f32) Io.Writer.Error!void {
+    assert(samples.len <= 512);
+    assert(dest.len >= samples.len * 2);
     var chunk_buf: [512]i16 = undefined;
-    var offset: usize = 0;
-    while (offset < samples.len) {
-        const chunk_size = @min(samples.len - offset, chunk_buf.len);
-        for (0..chunk_size) |i| {
-            chunk_buf[i] = quantize16i(samples[offset + i]);
-        }
-        // fixme: in future there could be a more idiomatic way from SDL
-        if (comptime builtin.cpu.arch.endian() != .little) {
-            std.mem.byteSwapAllElements(i16, chunk_buf[0..chunk_size]);
-        }
-        const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
-        try sink.writeAll(bytes);
-        offset += chunk_size;
+    const chunk_size = samples.len;
+    for (0..chunk_size) |i| {
+        chunk_buf[i] = quantize16i(samples[i]);
     }
+    // fixme: in future there could be a more idiomatic way from SDL
+    if (comptime builtin.cpu.arch.endian() != .little) {
+        std.mem.byteSwapAllElements(i16, chunk_buf[0..chunk_size]);
+    }
+    const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
+    assert(dest.len >= bytes.len);
+    @memcpy(dest, bytes);
 }
 
 test "writePcm16: write 16bit mono wav" {
@@ -142,7 +142,7 @@ test "writePcm16: write 16bit mono wav" {
     var sink: Io.Writer = .fixed(&buffer);
 
     _ = (try writeHeader(&sink, .{}, 3)).ok;
-    try writePcm16(&sink, &.{ 0.0, 1.0, -1.0 });
+    try encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
 
     // headers
     try testing.expectEqualStrings("RIFF", buffer[0..4]);
