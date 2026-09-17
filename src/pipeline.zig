@@ -1,5 +1,5 @@
-//! [shell: reusable] waveform render pipelines module
-const zrei = @import("../root.zig");
+//! [shell] waveform render pipelines module
+const zrei = @import("zrei");
 const Oscillator = zrei.dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
