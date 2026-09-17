@@ -114,25 +114,18 @@ pub fn createHeader(format: Format, samples_size: usize) CreateHeader {
 }
 
 /// encode `samples` into i16 (quantized) and copy it to `out`
+/// and returns it as slice
 ///
-/// * assume `samples.len` <= 512
 /// * assume `out.len` is at least twice `source.len`
 pub fn encodePcm16(out: []u8, samples: []const f32) []const u8 {
-    assert(samples.len <= 512);
-    assert(out.len >= samples.len * 2);
-    var chunk_buf: [512]i16 = undefined;
-    const chunk_size = samples.len;
-    for (0..chunk_size) |i| {
-        chunk_buf[i] = quantize16i(samples[i]);
+    const bytes_total = samples.len * 2;
+    assert(out.len >= bytes_total);
+    for (samples, 0..) |sample, i| {
+        const quantized = quantize16i(sample);
+        const offset = i * 2;
+        std.mem.writeInt(i16, out[offset..][0..2], quantized, .little);
     }
-    // fixme: in future there could be a more idiomatic way from SDL
-    if (comptime builtin.cpu.arch.endian() != .little) {
-        std.mem.byteSwapAllElements(i16, chunk_buf[0..chunk_size]);
-    }
-    const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
-    assert(out.len >= bytes.len);
-    @memcpy(out[0..bytes.len], bytes);
-    return out[0..bytes.len];
+    return out[0..bytes_total];
 }
 
 test "writePcm16: write 16bit mono wav" {
