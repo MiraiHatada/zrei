@@ -16,8 +16,8 @@ FCISやImpureim Sandwichはしばしば、[連続的なIOの扱いの複雑さ�
 
 内部フィールドのメモリを変更する(ステートフル)状態機械だとしても、1連の入力に対し演算結果が固定ならば純粋であり、\
 不純と判断されるのは、演算結果が一貫しない場合と、システムコールを発行する場合だけだ、と置く。\
-この機械はとても強力なので、クライスリ圏の力を借りずともCoreの純粋性を保ち続けることができる。
-
+この機械はとても強力なので、クライスリ圏の力を借りずともCoreの純粋性を保ち続けることができる。\
+cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/std/http/HeadParser.zig)
 
 ## naming conventions
 
