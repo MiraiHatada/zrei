@@ -1,13 +1,12 @@
-const zrei = @import("zrei");
+//! [shell: reusable] waveform render pipelines module
+const zrei = @import("../root.zig");
 const Oscillator = zrei.dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
-const Allocator = std.mem.Allocator;
-
-const log = std.log.scoped(.service);
 const assert = std.debug.assert;
 
-pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
+pub const RenderWav = enum { ok, todo };
+pub fn renderWav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const sample_rate: u32 = comptime 48000;
     const fmt: zrei.format.wav.Format = .{
         .bits_per_sample = 16,
@@ -30,4 +29,5 @@ pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
         offset += chunk_size;
     }
     assert(offset == samples_size);
+    return .ok;
 }

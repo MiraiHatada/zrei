@@ -1,4 +1,4 @@
-const service = @import("service.zig");
+const zrei = @import("zrei");
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
@@ -53,7 +53,7 @@ fn runRender(io: Io, args: []const []const u8) !u8 {
     var writer = file.writerStreaming(io, &file_buf);
 
     // process encode
-    service.encode(&writer.interface, 5) catch |err| switch (err) {
+    _ = zrei.pipeline.render.renderWav(&writer.interface, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
         else => |e| return e,
     };
