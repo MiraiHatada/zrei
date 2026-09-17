@@ -28,7 +28,7 @@ pub fn renderWav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     while (offset < samples_size) {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
-        osc.render(chunk, 440.0);
+        osc.render(chunk, 440.0, .square);
         try zrei.format.wav.writePcm16(sink, chunk);
         offset += chunk_size;
     }
