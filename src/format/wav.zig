@@ -64,8 +64,8 @@ pub const Header = struct {
         };
     }
 
-    /// write RIFF WAV header bytes in little endian to `sink`
-    pub fn write(self: Header, dest: *[44]u8) void {
+    /// write RIFF WAV header bytes in little endian to `out`
+    pub fn write(self: Header, out: *[44]u8) void {
         var bytes: [44]u8 = undefined;
 
         bytes[0..4].* = "RIFF".*;
@@ -82,7 +82,7 @@ pub const Header = struct {
         bytes[36..40].* = "data".*;
         std.mem.writeInt(u32, bytes[40..44], self.data_size, .little);
 
-        @memcpy(dest, &bytes);
+        @memcpy(out, &bytes);
     }
 };
 
@@ -100,27 +100,27 @@ inline fn quantize16i(sample: f32) i16 {
 
 pub const WriteHeader = union(enum) { ok, exceeded_4gb };
 
-/// write RIFF WAV header in little endian to `sink`
+/// encode RIFF WAV header in little endian and copy it to `out`
 ///
 /// * assumes `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn writeHeader(dest: *[44]u8, format: Format, samples_size: usize) WriteHeader {
+pub fn encodeHeader(out: *[44]u8, format: Format, samples_size: usize) WriteHeader {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
     const header = Header.init(format, samples_size / format.channels) catch |err| switch (err) {
         error.Exceeded4Gb => return .exceeded_4gb,
     };
-    header.write(dest);
+    header.write(out);
     return .ok;
 }
 
-/// encode `samples` into i16 (quantized) and copy it to `dest`
+/// encode `samples` into i16 (quantized) and copy it to `out`
 ///
 /// * assume `samples.len` <= 512
 /// * assume `dest.len` is at least twice `source.len`
-pub fn encodePcm16(dest: []u8, samples: []const f32) void {
+pub fn encodePcm16(out: []u8, samples: []const f32) void {
     assert(samples.len <= 512);
-    assert(dest.len >= samples.len * 2);
+    assert(out.len >= samples.len * 2);
     var chunk_buf: [512]i16 = undefined;
     const chunk_size = samples.len;
     for (0..chunk_size) |i| {
@@ -131,15 +131,15 @@ pub fn encodePcm16(dest: []u8, samples: []const f32) void {
         std.mem.byteSwapAllElements(i16, chunk_buf[0..chunk_size]);
     }
     const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
-    assert(dest.len >= bytes.len);
-    @memcpy(dest, bytes);
+    assert(out.len >= bytes.len);
+    @memcpy(out, bytes);
 }
 
 test "writePcm16: write 16bit mono wav" {
     const testing = std.testing;
     var buffer: [44 + 6]u8 = undefined;
 
-    const whres = writeHeader(buffer[0..44], .{}, 3);
+    const whres = encodeHeader(buffer[0..44], .{}, 3);
     try testing.expectEqual(.ok, whres);
 
     encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
