@@ -117,7 +117,7 @@ pub fn createHeader(format: Format, samples_size: usize) CreateHeader {
 ///
 /// * assume `samples.len` <= 512
 /// * assume `out.len` is at least twice `source.len`
-pub fn encodePcm16(out: []u8, samples: []const f32) void {
+pub fn encodePcm16(out: []u8, samples: []const f32) []const u8 {
     assert(samples.len <= 512);
     assert(out.len >= samples.len * 2);
     var chunk_buf: [512]i16 = undefined;
@@ -131,7 +131,8 @@ pub fn encodePcm16(out: []u8, samples: []const f32) void {
     }
     const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
     assert(out.len >= bytes.len);
-    @memcpy(out, bytes);
+    @memcpy(out[0..bytes.len], bytes);
+    return out[0..bytes.len];
 }
 
 test "writePcm16: write 16bit mono wav" {
@@ -141,7 +142,7 @@ test "writePcm16: write 16bit mono wav" {
     const whres = createHeader(.{}, 3);
     buffer[0..44].* = whres.ok;
 
-    encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
+    _ = encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
 
     // headers
     try testing.expectEqualStrings("RIFF", buffer[0..4]);
