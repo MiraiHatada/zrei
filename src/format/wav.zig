@@ -1,7 +1,5 @@
 //! RIFF WAV format definition module
-const builtin = @import("builtin");
 const std = @import("std");
-const Io = std.Io;
 const assert = std.debug.assert;
 
 /// defines WAV format
@@ -65,8 +63,8 @@ pub const Header = struct {
         };
     }
 
-    /// write RIFF WAV header bytes in little endian to `sink`
-    pub fn write(self: Header, sink: *Io.Writer) Io.Writer.Error!void {
+    /// RIFF WAV header bytes in little endian
+    pub fn toBytes(self: Header) [44]u8 {
         var bytes: [44]u8 = undefined;
 
         bytes[0..4].* = "RIFF".*;
@@ -83,7 +81,7 @@ pub const Header = struct {
         bytes[36..40].* = "data".*;
         std.mem.writeInt(u32, bytes[40..44], self.data_size, .little);
 
-        try sink.writeAll(&bytes);
+        return bytes;
     }
 };
 
@@ -99,50 +97,44 @@ inline fn quantize16i(sample: f32) i16 {
     return @intFromFloat(@round(clamped));
 }
 
-pub const WriteHeader = union(enum) { ok, exceeded_4gb };
+pub const CreateHeader = union(enum) { ok: [44]u8, exceeded_4gb };
 
-/// write RIFF WAV header in little endian to `sink`
+/// create RIFF WAV header in little endian as `[44]u8`
 ///
 /// * assumes `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: usize) Io.Writer.Error!WriteHeader {
+pub fn createHeader(format: Format, samples_size: usize) CreateHeader {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
     const header = Header.init(format, samples_size / format.channels) catch |err| switch (err) {
         error.Exceeded4Gb => return .exceeded_4gb,
     };
-    try header.write(sink);
-    return .ok;
+    return .{ .ok = header.toBytes() };
 }
 
-/// quantize `samples` into i16 and write it to `sink`
+/// encode `samples` into i16 (quantized) and copy it to `out`
+/// and returns it as slice
 ///
-/// write out in one loop when `samples.len <= 512`
-pub fn writePcm16(sink: *Io.Writer, samples: []const f32) Io.Writer.Error!void {
-    var chunk_buf: [512]i16 = undefined;
-    var offset: usize = 0;
-    while (offset < samples.len) {
-        const chunk_size = @min(samples.len - offset, chunk_buf.len);
-        for (0..chunk_size) |i| {
-            chunk_buf[i] = quantize16i(samples[offset + i]);
-        }
-        // fixme: in future there could be a more idiomatic way from SDL
-        if (comptime builtin.cpu.arch.endian() != .little) {
-            std.mem.byteSwapAllElements(i16, chunk_buf[0..chunk_size]);
-        }
-        const bytes: []const u8 = std.mem.sliceAsBytes(chunk_buf[0..chunk_size]);
-        try sink.writeAll(bytes);
-        offset += chunk_size;
+/// * assume `out.len` is at least twice `source.len`
+pub fn encodePcm16(out: []u8, samples: []const f32) []const u8 {
+    const bytes_total = samples.len * 2;
+    assert(out.len >= bytes_total);
+    for (samples, 0..) |sample, i| {
+        const quantized = quantize16i(sample);
+        const offset = i * 2;
+        std.mem.writeInt(i16, out[offset..][0..2], quantized, .little);
     }
+    return out[0..bytes_total];
 }
 
 test "writePcm16: write 16bit mono wav" {
     const testing = std.testing;
     var buffer: [44 + 6]u8 = undefined;
-    var sink: Io.Writer = .fixed(&buffer);
 
-    _ = (try writeHeader(&sink, .{}, 3)).ok;
-    try writePcm16(&sink, &.{ 0.0, 1.0, -1.0 });
+    const whres = createHeader(.{}, 3);
+    buffer[0..44].* = whres.ok;
+
+    _ = encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
 
     // headers
     try testing.expectEqualStrings("RIFF", buffer[0..4]);

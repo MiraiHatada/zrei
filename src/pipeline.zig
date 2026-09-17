@@ -14,22 +14,26 @@ pub fn renderWav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
         .sample_rate = sample_rate,
     };
     const samples_size = @as(usize, sample_rate) * sec;
-    const res = try zrei.format.wav.writeHeader(sink, fmt, samples_size);
+    const res = zrei.format.wav.createHeader(fmt, samples_size);
     switch (res) {
         .exceeded_4gb => return .{ .fail = "Riff Wav can't be larger than 4GB" },
-        .ok => {},
+        .ok => |bytes| {
+            try sink.writeAll(&bytes);
+        },
     }
 
-    // we use 2KB stack buffer here, which is way less than ordinary L1 data cache
+    // we use 2KB (+1KB) stack buffer here, which is way less than ordinary L1 data cache
     // on paper it allows 16+ polyphony without a cache miss but you know life is not that easy
     var buffer: [512]f32 = undefined;
+    var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
     var osc: Oscillator = .init(sample_rate);
     while (offset < samples_size) {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
-        osc.render(chunk, 440.0);
-        try zrei.format.wav.writePcm16(sink, chunk);
+        osc.render(chunk, 440.0, .square);
+        const data = zrei.format.wav.encodePcm16(&buffer_i16_raw, chunk);
+        try sink.writeAll(data);
         offset += chunk_size;
     }
     assert(offset == samples_size);
