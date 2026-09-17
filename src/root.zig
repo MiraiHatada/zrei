@@ -1,11 +1,11 @@
 //! zrei
 
-/// dsp module
+/// [core] dsp module
 pub const dsp = struct {
     pub const Oscillator = @import("dsp/Oscillator.zig");
 };
 
-/// format module
+/// [core] format module
 pub const format = struct {
     pub const wav = @import("format/wav.zig");
 };

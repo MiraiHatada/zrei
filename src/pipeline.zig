@@ -1,13 +1,12 @@
+//! [shell] waveform render pipelines module
 const zrei = @import("zrei");
 const Oscillator = zrei.dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
-const Allocator = std.mem.Allocator;
-
-const log = std.log.scoped(.service);
 const assert = std.debug.assert;
 
-pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
+pub const RenderWav = union(enum) { ok, fail: []const u8 };
+pub fn renderWav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const sample_rate: u32 = comptime 48000;
     const fmt: zrei.format.wav.Format = .{
         .bits_per_sample = 16,
@@ -15,7 +14,11 @@ pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
         .sample_rate = sample_rate,
     };
     const samples_size = @as(usize, sample_rate) * sec;
-    try zrei.format.wav.writeHeader(sink, fmt, samples_size);
+    const res = try zrei.format.wav.writeHeader(sink, fmt, samples_size);
+    switch (res) {
+        .exceeded_4gb => return .{ .fail = "Riff Wav can't be larger than 4GB" },
+        .ok => {},
+    }
 
     // we use 2KB stack buffer here, which is way less than ordinary L1 data cache
     // on paper it allows 16+ polyphony without a cache miss but you know life is not that easy
@@ -30,4 +33,5 @@ pub fn encode(sink: *Io.Writer, sec: u16) Io.Writer.Error!void {
         offset += chunk_size;
     }
     assert(offset == samples_size);
+    return .ok;
 }

@@ -31,11 +31,15 @@ pub const Header = struct {
         extensible = 0xFFFE,
     };
 
+    pub const ValidationError = error{
+        Exceeded4Gb,
+    };
+
     /// initialize RIFF WAV header struct
     ///
     /// * assumes 4GB limit including data
     /// * `format.bits_per_sample` must be divisible by 8
-    pub fn init(format: Format, frame_count: usize) Header {
+    pub fn init(format: Format, frame_count: usize) ValidationError!Header {
         assert(format.channels > 0);
         assert(format.bits_per_sample % 8 == 0);
         const bytes_per_sample: u16 = format.bits_per_sample / 8;
@@ -43,7 +47,9 @@ pub const Header = struct {
 
         // 4GB assertion
         const max_frames = (std.math.maxInt(u32) - 36) / @as(usize, block_align);
-        assert(frame_count <= max_frames);
+        if (frame_count > max_frames) {
+            return error.Exceeded4Gb;
+        }
 
         const data_size: u32 = @intCast(frame_count * block_align);
         const riff_size: u32 = 36 + data_size; // sizeof("WAVE" ... data_size) = 36
@@ -93,15 +99,20 @@ inline fn quantize16i(sample: f32) i16 {
     return @intFromFloat(@round(clamped));
 }
 
+pub const WriteHeader = union(enum) { ok, exceeded_4gb };
+
 /// write RIFF WAV header in little endian to `sink`
 ///
 /// * assumes `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: usize) Io.Writer.Error!void {
+pub fn writeHeader(sink: *Io.Writer, format: Format, samples_size: usize) Io.Writer.Error!WriteHeader {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
-    const header: Header = .init(format, samples_size / format.channels);
+    const header = Header.init(format, samples_size / format.channels) catch |err| switch (err) {
+        error.Exceeded4Gb => return .exceeded_4gb,
+    };
     try header.write(sink);
+    return .ok;
 }
 
 /// quantize `samples` into i16 and write it to `sink`
@@ -130,7 +141,7 @@ test "writePcm16: write 16bit mono wav" {
     var buffer: [44 + 6]u8 = undefined;
     var sink: Io.Writer = .fixed(&buffer);
 
-    try writeHeader(&sink, .{}, 3);
+    _ = (try writeHeader(&sink, .{}, 3)).ok;
     try writePcm16(&sink, &.{ 0.0, 1.0, -1.0 });
 
     // headers

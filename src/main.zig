@@ -1,4 +1,5 @@
-const service = @import("service.zig");
+const zrei = @import("zrei");
+const pipeline = @import("pipeline.zig");
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
@@ -53,10 +54,13 @@ fn runRender(io: Io, args: []const []const u8) !u8 {
     var writer = file.writerStreaming(io, &file_buf);
 
     // process encode
-    service.encode(&writer.interface, 5) catch |err| switch (err) {
+    const rc = pipeline.renderWav(&writer.interface, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
-        else => |e| return e,
     };
+    if (rc == .fail) {
+        log.err("failed to rendering waveform: {s}", .{rc.fail});
+        return 1;
+    }
     try writer.flush();
 
     var stderr_buf: [1024]u8 = undefined;
