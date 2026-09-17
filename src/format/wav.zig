@@ -1,5 +1,4 @@
 //! RIFF WAV format definition module
-const builtin = @import("builtin");
 const std = @import("std");
 const assert = std.debug.assert;
 
