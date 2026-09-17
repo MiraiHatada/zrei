@@ -64,8 +64,8 @@ pub const Header = struct {
         };
     }
 
-    /// write RIFF WAV header bytes in little endian to `out`
-    pub fn write(self: Header, out: *[44]u8) void {
+    /// RIFF WAV header bytes in little endian
+    pub fn toBytes(self: Header) [44]u8 {
         var bytes: [44]u8 = undefined;
 
         bytes[0..4].* = "RIFF".*;
@@ -82,7 +82,7 @@ pub const Header = struct {
         bytes[36..40].* = "data".*;
         std.mem.writeInt(u32, bytes[40..44], self.data_size, .little);
 
-        @memcpy(out, &bytes);
+        return bytes;
     }
 };
 
@@ -98,26 +98,25 @@ inline fn quantize16i(sample: f32) i16 {
     return @intFromFloat(@round(clamped));
 }
 
-pub const WriteHeader = union(enum) { ok, exceeded_4gb };
+pub const CreateHeader = union(enum) { ok: [44]u8, exceeded_4gb };
 
-/// encode RIFF WAV header in little endian and copy it to `out`
+/// create RIFF WAV header in little endian as `[44]u8`
 ///
 /// * assumes `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn encodeHeader(out: *[44]u8, format: Format, samples_size: usize) WriteHeader {
+pub fn createHeader(format: Format, samples_size: usize) CreateHeader {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
     const header = Header.init(format, samples_size / format.channels) catch |err| switch (err) {
         error.Exceeded4Gb => return .exceeded_4gb,
     };
-    header.write(out);
-    return .ok;
+    return .{ .ok = header.toBytes() };
 }
 
 /// encode `samples` into i16 (quantized) and copy it to `out`
 ///
 /// * assume `samples.len` <= 512
-/// * assume `dest.len` is at least twice `source.len`
+/// * assume `out.len` is at least twice `source.len`
 pub fn encodePcm16(out: []u8, samples: []const f32) void {
     assert(samples.len <= 512);
     assert(out.len >= samples.len * 2);
@@ -139,8 +138,8 @@ test "writePcm16: write 16bit mono wav" {
     const testing = std.testing;
     var buffer: [44 + 6]u8 = undefined;
 
-    const whres = encodeHeader(buffer[0..44], .{}, 3);
-    try testing.expectEqual(.ok, whres);
+    const whres = createHeader(.{}, 3);
+    buffer[0..44].* = whres.ok;
 
     encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
 
