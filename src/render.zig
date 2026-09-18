@@ -1,12 +1,13 @@
-//! [shell] waveform render pipelines module
-const zrei = @import("zrei");
+//! waveform rendering shell
+const zrei = @import("root.zig");
 const Oscillator = zrei.dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
 pub const RenderWav = union(enum) { ok, fail: []const u8 };
-pub fn renderWav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
+/// fixme: more specific arguments about sound
+pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const sample_rate: u32 = comptime 48000;
     const fmt: zrei.format.wav.Format = .{
         .bits_per_sample = 16,
