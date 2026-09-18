@@ -7,47 +7,55 @@
 3. Functional Core, Imperative Shell (FCIS)アーキテクチャを採択する。
 4. その実践として[Impureim Sandwich](https://blog.ploeh.dk/2020/03/02/impureim-sandwich/)と[Sans I/O](https://sans-io.readthedocs.io/)に準拠する。
 
-### core complementary concept
+### complement 
 
-FCISやImpureim Sandwichはしばしば、[連続的なIOの扱いの複雑さを封じ込める](https://blog.ploeh.dk/2017/07/10/pure-interactions/)ための木構造(**IO Monad**)に発展する。\
-これを自然な形で回避するために次の一点を認める:
+FCISやImpureim Sandwichはしばしば[連続的なIOの組み合わせの複雑さを封じ込めるための木構造](https://blog.ploeh.dk/2017/07/24/combining-free-monads-in-haskell/)に発展する。\
+これを回避しつつFCISを達成するために、次のことを認める:
 
-- **『システムコールを発行しない状態機械』はCore領域内において純粋である。**
+- **『システムコールを発行しないステートフルな状態機械』はCore領域内において純粋である。**
 
-内部フィールドのメモリを変更する(ステートフル)状態機械だとしても、1連の入力に対し演算結果が固定ならば純粋であり、\
-不純と判断されるのは、演算結果が一貫しない場合と、システムコールを発行する場合だけだ、と置く。\
-この機械はとても強力なので、クライスリ圏の力を借りずともCoreの純粋性を保ち続けることができる。\
-cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/std/http/HeadParser.zig)
+「同じ一連の入力には同じ結果を返すこと」「カーネルに制御を渡さないこと」の二点を満たせば純粋とみなす。\
+この機械はとても強力なので、クライスリ圏の力を借りずともCoreの純粋性を保つことができる([`Ref`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/std/http/HeadParser.zig))。
 
 ## naming conventions
 
 - アンダースコアから始まるフィールド名は禁止 (e.g. `some_struct._somefield`) 
   - Zigにプライベートフィールドはない。ないものをあるように扱うのは避ける。
-- Shell境界の`*std.Io.Reader`/`*std.Io.Writer`の引数名は`source`/`sink`
-  - 具象のReader/Writerに`reader`/`writer`変数名を固定するため([Ref](https://youtu.be/f30PceqQWko?si=TMoQlhtOawuyw7gX&t=1154))。
+- `std.Io.Reader`/`std.Io.Writer`のパラメータ名は常に`source`/`sink`
+  - `std.Io.File.Writer`等の具象Reader/Writerに`reader`/`writer`変数名を固定するため([`Ref`](https://youtu.be/f30PceqQWko?si=TMoQlhtOawuyw7gX&t=1154))。
  
 ## type and module imports 
 
-- モジュールのトップレベル型は全てファイルの開幕で参照拘束する
+- モジュールルートとライブラリルートはファイル開幕で参照拘束する
   ```zig
+  const mylib = @import("mylib");
+  const core = @import("core.zig");
+  const builtin = @import("builtin");
   const std = @import("std");
+  ```
+
+- 名前空間をファイルトップレベルで参照拘束するのは禁止(完全修飾する)
+  ```zig
+  const time = std.time; // NG
+  const path = std.fs.path; // NG 
+  const controller = core.controller; // NG
+
+  test {
+      const testing = std.testing; // OK
+  }
+  ```
+
+- 型はファイルトップレベルで参照拘束してよい
+  ```zig
   const Io = std.Io;
   const Allocator = std.mem.Allocator;
   const Engine = @import("core/Engine.zig");
+  const Client = mylib.socket.Client;
   ```
 
-- ネストされた型は個別に拘束せずトップレベル型を経由して参照する
+- 型の内部型は個別に拘束せずトップレベル型を経由して参照する
   ```zig
   pub fn save(sink: *Io.Writer, file: Io.File, stamp: Io.Timestamp) !void {...}
-  ```
-
-- 名前空間は各モジュールのトップレベルのみをファイルの開幕で拘束する
-  ```zig
-  const std = @import("std"); // OK
-  const builtin = @import("builtin"); // OK
-  const core = @import("core.zig"); // OK
-  const time = std.time; // 禁止(シャドーイング防止のため完全修飾する → std.time)
-  const path = std.fs.path; // 禁止
   ```
 
 - ファイルスコープ定数と名前空間の拘束とを区別する
@@ -71,7 +79,7 @@ cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/
   - 4KBを超えるローカル配列をスタックに置かない。
   - 再帰を避ける。末尾再帰指定子も現状は非LLVMバックエンドで動かないため避ける。
 
-## memory allocation
+## memory principle
 
 - 基礎: **Grouped Element Thinking** 
   - RAII的な都度の個別確保を避け、作業単位・データ集合ごとにまとめて確保する。
@@ -84,23 +92,16 @@ cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/
     ```
   
 - 次善: **Caller-Passed Allocator** 
-  - 動的確保が不可避な場合のみ、引数で明示的に`Allocator`を受け取る。
+  - 動的確保が不可避かつ純粋性を必要としない場合は、引数で明示的に`Allocator`を受け取る。
     ```zig
     fn parse(arena: Allocator) !Ast
     ```
- 
-- 禁止: **Core領域でのAllocatorフィールド保持**
-  - Core構造体はAllocatorを持たない。
-  - システムコールを発行しない限り、局所的にはステートフルな状態機械でもOK。**カーネルにだけは飛ばない。**
-  
-- 適宜: Shell領域でのAllocatorフィールド保持 
-  - CLI引数パーサーなど、Shell側の独立したライフタイムを持つ状態機械はアロケータを保持してよい。
 
-- 適宜: 長さがコンパイルタイム既知で小さい配列の値返し
-  - ZigのRVOにより 1→レジスタに乗るか 2→呼び出し元スタックに直接書かれる(たくさんのメリットがある)。
+- 適宜: **長さがコンパイルタイム既知で小さい配列の値返し**
+  - ZigのRVOにより 1→レジスタに乗る 2→呼び出し元スタックに直接書かれる(たくさんのメリットがある)。
     ```zig
-    fn crcgen(object: Object) [16]u8 // レジスタに乗る
-    fn encode(data: Data) [64]u8     // 呼び出し元スタックに書かれる
+    fn crcgen(object: Object) [16]u8 // 1. レジスタに乗る
+    fn encode(data: Data) [64]u8     // 2. 呼び出し元スタックに書かれる
     ```
 
 ## error handling
@@ -111,7 +112,7 @@ cf. [`std.http.HeadParser`](https://codeberg.org/ziglang/zig/src/tag/0.16.0/lib/
   3. **想定された失敗**: 制約違反や仕様上の分岐。正常な値として代数型で返す。\
 検討する代数型は次元数の低い順に `bool` → `enum` → `?T` → `union(enum)` or `struct Result {...}` 
 - 連続するリソース確保のシステム失敗点では `errdefer` ガードを用いる。
-- モジュール内のプライベート関数で大域脱出のために`!T`を用いることは、それが境界に漏れない限り咎めない。
+- モジュールの非公開API領域で大域脱出のために`!T`を用いることは、それが境界に漏れない限り咎めない。
 
 ## trivial
 
