@@ -1,6 +1,7 @@
-//! waveform rendering shell
-const zrei = @import("root.zig");
-const Oscillator = zrei.dsp.Oscillator;
+//! waveform rendering pipeline
+const format = @import("format.zig");
+const dsp = @import("dsp.zig");
+const Oscillator = dsp.Oscillator;
 const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
@@ -9,13 +10,13 @@ pub const RenderWav = union(enum) { ok, fail: []const u8 };
 /// fixme: more specific arguments about sound
 pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const sample_rate: u32 = comptime 48000;
-    const fmt: zrei.format.wav.Format = .{
+    const fmt: format.wav.Format = .{
         .bits_per_sample = 16,
         .channels = 1,
         .sample_rate = sample_rate,
     };
     const samples_size = @as(usize, sample_rate) * sec;
-    const res = zrei.format.wav.createHeader(fmt, samples_size);
+    const res = format.wav.createHeader(fmt, samples_size);
     switch (res) {
         .exceeded_4gb => return .{ .fail = "Riff Wav can't be larger than 4GB" },
         .ok => |bytes| {
@@ -33,7 +34,7 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
         osc.render(chunk, 440.0, .square, .vector);
-        const data = zrei.format.wav.encodePcm16(&buffer_i16_raw, chunk);
+        const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
         try sink.writeAll(data);
         offset += chunk_size;
     }
