@@ -39,11 +39,12 @@ pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveFo
     }
 }
 
-inline fn renderLoop(self: *Oscillator, buffer: []f32, dt: f64, comptime sampler: fn (f32) f32) void {
+inline fn renderLoop(self: *Oscillator, buffer: []f32, dt: f64, comptime sampler: fn (f32, f32) f32) void {
+    const delta32: f32 = @floatCast(dt);
     for (buffer) |*sample| {
         // sine wave doesn't have a jump
         const phase32: f32 = @floatCast(self.phase);
-        sample.* = sampler(phase32);
+        sample.* = sampler(phase32, delta32);
 
         self.phase += dt;
         if (self.phase >= 1.0) {
@@ -52,19 +53,23 @@ inline fn renderLoop(self: *Oscillator, buffer: []f32, dt: f64, comptime sampler
     }
 }
 
-fn sampleSine(phase: f32) f32 {
+fn sampleSine(phase: f32, dt: f32) f32 {
+    _ = dt;
     return @sin(phase * 2.0 * std.math.pi);
 }
 
-fn sampleTriangle(phase: f32) f32 {
+fn sampleTriangle(phase: f32, dt: f32) f32 {
+    _ = dt;
     return 4.0 * @abs(phase - 0.5) - 1.0;
 }
 
-fn sampleSaw(phase: f32) f32 {
+fn sampleSaw(phase: f32, dt: f32) f32 {
+    _ = dt;
     return 2.0 * phase - 1.0;
 }
 
-fn sampleSquare(phase: f32) f32 {
+fn sampleSquare(phase: f32, dt: f32) f32 {
+    _ = dt;
     return if (phase < 0.5) 1.0 else -1.0;
 }
 
