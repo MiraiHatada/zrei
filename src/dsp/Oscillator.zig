@@ -23,7 +23,8 @@ pub fn init(sample_rate: f64) Oscillator {
     };
 }
 
-/// sine wave for now
+/// an oscillator
+/// fixme: do i need to put scalar option as public api?
 ///
 /// assumes `frequency` is lower than the nyquist frequency
 pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, mode: Mode) void {
@@ -90,7 +91,7 @@ inline fn renderLoopV(
         self.phase -= @floor(self.phase);
     }
 
-    // remainig
+    // remaining
     self.renderLoop(buffer[i..], dt, samplerScalar);
 }
 
@@ -138,7 +139,7 @@ fn sampleSquare(phase: f32, dt: f32) f32 {
 
 fn sampleSquareV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
     _ = dt;
-    const half: @Vector(4, f32) = comptime @splat(0.50);
+    const half: @Vector(4, f32) = comptime @splat(0.5);
     const mask: @Vector(4, bool) = phase < half;
 
     const one: @Vector(4, f32) = comptime @splat(1.0);
