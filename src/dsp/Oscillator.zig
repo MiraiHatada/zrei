@@ -42,8 +42,10 @@ pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveFo
         }
     } else {
         switch (waveform) {
+            .sine => self.renderLoopV(buffer, dt, sampleSineV, sampleSine),
             .saw => self.renderLoopV(buffer, dt, sampleSawV, sampleSaw),
-            else => @panic("todoooo"),
+            .square => self.renderLoopV(buffer, dt, sampleSquareV, sampleSquare),
+            .triangle => self.renderLoopV(buffer, dt, sampleTriangleV, sampleTriangle),
         }
     }
 }
@@ -97,9 +99,24 @@ fn sampleSine(phase: f32, dt: f32) f32 {
     return @sin(phase * 2.0 * std.math.pi);
 }
 
+fn sampleSineV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+    _ = dt;
+    const two: @Vector(4, f32) = comptime @splat(2.0);
+    const pi: @Vector(4, f32) = comptime @splat(std.math.pi);
+    return @sin(phase * two * pi);
+}
+
 fn sampleTriangle(phase: f32, dt: f32) f32 {
     _ = dt;
     return 4.0 * @abs(phase - 0.5) - 1.0;
+}
+
+fn sampleTriangleV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+    _ = dt;
+    const four: @Vector(4, f32) = comptime @splat(4.0);
+    const half: @Vector(4, f32) = comptime @splat(0.5);
+    const one: @Vector(4, f32) = comptime @splat(1.0);
+    return four * @abs(phase - half) - one;
 }
 
 fn sampleSaw(phase: f32, dt: f32) f32 {
@@ -119,6 +136,16 @@ fn sampleSquare(phase: f32, dt: f32) f32 {
     return if (phase < 0.5) 1.0 else -1.0;
 }
 
+fn sampleSquareV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+    _ = dt;
+    const half: @Vector(4, f32) = comptime @splat(0.50);
+    const mask: @Vector(4, bool) = phase < half;
+
+    const one: @Vector(4, f32) = comptime @splat(1.0);
+    const minus_one: @Vector(4, f32) = comptime @splat(-1.0);
+    return @select(f32, mask, one, minus_one);
+}
+
 test "render sine wave" {
     const testing = std.testing;
     var osc: Oscillator = .init(44100.0);
@@ -136,20 +163,22 @@ test "render sine wave" {
     }
 }
 
-test "render saw wave vector same as scalar" {
+test "render wave vector same as scalar" {
     const testing = std.testing;
-    var osc_s: Oscillator = .init(44100.0);
-    var osc_v: Oscillator = .init(44100.0);
+    inline for (std.enums.values(WaveForm)) |form| {
+        var osc_s: Oscillator = .init(44100.0);
+        var osc_v: Oscillator = .init(44100.0);
 
-    var buf_s: [515]f32 = undefined;
-    var buf_v: [515]f32 = undefined;
+        var buf_s: [515]f32 = undefined;
+        var buf_v: [515]f32 = undefined;
 
-    osc_s.render(&buf_s, 440.0, .saw, .scalar);
-    osc_v.render(&buf_v, 440.0, .saw, .vector);
+        osc_s.render(&buf_s, 440.0, form, .scalar);
+        osc_v.render(&buf_v, 440.0, form, .vector);
 
-    try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-6);
+        try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-6);
 
-    for (0..515) |idx| {
-        try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-6);
+        for (0..515) |idx| {
+            try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-6);
+        }
     }
 }
