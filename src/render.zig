@@ -41,3 +41,19 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     assert(offset == samples_size);
     return .ok;
 }
+
+test wav {
+    const testing = std.testing;
+    // 48000 * 2 = 96000
+    var buffer: [44 + 96000]u8 = undefined;
+    var sink = Io.Writer.fixed(&buffer);
+
+    const res = try wav(&sink, 1);
+    try testing.expectEqual(.ok, res);
+
+    try testing.expectEqualStrings("RIFF", buffer[0..4]);
+    try testing.expectEqualStrings("WAVEfmt ", buffer[8..16]);
+    try testing.expectEqualStrings("data", buffer[36..40]);
+    // data_size (u32) == 96000
+    try testing.expectEqual(96000, std.mem.readInt(u32, buffer[40..44], .little));
+}

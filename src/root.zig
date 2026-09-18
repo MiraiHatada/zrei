@@ -13,4 +13,5 @@ pub const render = @import("render.zig");
 test {
     _ = @import("dsp/Oscillator.zig");
     _ = @import("format/wav.zig");
+    _ = @import("render.zig");
 }
