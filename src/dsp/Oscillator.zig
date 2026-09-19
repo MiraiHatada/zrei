@@ -4,6 +4,9 @@ const Oscillator = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
+// alias for the vector type used in simd arithmetic
+const VecF32 = @Vector(4, f32);
+
 /// phase accumulator, 0 ≤ phase < 1
 phase: f64,
 /// sample rate (sample per sec)
@@ -69,18 +72,18 @@ inline fn renderLoopV(
     self: *Oscillator,
     buffer: []f32,
     dt: f64,
-    comptime samplerV: fn (@Vector(4, f32), @Vector(4, f32)) @Vector(4, f32),
+    comptime samplerV: fn (VecF32, VecF32) VecF32,
     comptime samplerScalar: fn (f32, f32) f32,
 ) void {
     const delta32: f32 = @floatCast(dt);
-    const delta32v: @Vector(4, f32) = @splat(delta32);
-    const offsetv: @Vector(4, f32) = .{ 0.0, 1.0, 2.0, 3.0 };
+    const delta32v: VecF32 = @splat(delta32);
+    const offsetv: VecF32 = .{ 0.0, 1.0, 2.0, 3.0 };
 
     var i: usize = 0;
     const vector_bound = buffer.len - (buffer.len % 4);
     while (i < vector_bound) : (i += 4) {
-        const basev: @Vector(4, f32) = @splat(@floatCast(self.phase));
-        const basev_forwarded: @Vector(4, f32) = basev + (offsetv * delta32v);
+        const basev: VecF32 = @splat(@floatCast(self.phase));
+        const basev_forwarded: VecF32 = basev + (offsetv * delta32v);
         // some may exceed 1.0 so modulo 1.0
         const phasev = basev_forwarded - @floor(basev_forwarded);
         const samplev = samplerV(phasev, delta32v);
@@ -100,10 +103,10 @@ fn sampleSine(phase: f32, dt: f32) f32 {
     return @sin(phase * 2.0 * std.math.pi);
 }
 
-fn sampleSineV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
     _ = dt;
-    const two: @Vector(4, f32) = @splat(2.0);
-    const pi: @Vector(4, f32) = @splat(std.math.pi);
+    const two: VecF32 = @splat(2.0);
+    const pi: VecF32 = @splat(std.math.pi);
     return @sin(phase * two * pi);
 }
 
@@ -112,11 +115,11 @@ fn sampleTriangle(phase: f32, dt: f32) f32 {
     return 4.0 * @abs(phase - 0.5) - 1.0;
 }
 
-fn sampleTriangleV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+fn sampleTriangleV(phase: VecF32, dt: VecF32) VecF32 {
     _ = dt;
-    const four: @Vector(4, f32) = @splat(4.0);
-    const half: @Vector(4, f32) = @splat(0.5);
-    const one: @Vector(4, f32) = @splat(1.0);
+    const four: VecF32 = @splat(4.0);
+    const half: VecF32 = @splat(0.5);
+    const one: VecF32 = @splat(1.0);
     return four * @abs(phase - half) - one;
 }
 
@@ -125,9 +128,9 @@ fn sampleSaw(phase: f32, dt: f32) f32 {
     return naive - polyblep(phase, dt);
 }
 
-fn sampleSawV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
-    const one: @Vector(4, f32) = @splat(1.0);
-    const two: @Vector(4, f32) = @splat(2.0);
+fn sampleSawV(phase: VecF32, dt: VecF32) VecF32 {
+    const one: VecF32 = @splat(1.0);
+    const two: VecF32 = @splat(2.0);
     const naive = two * phase - one;
     return naive - polyblepV(phase, dt);
 }
@@ -137,13 +140,13 @@ fn sampleSquare(phase: f32, dt: f32) f32 {
     return if (phase < 0.5) 1.0 else -1.0;
 }
 
-fn sampleSquareV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+fn sampleSquareV(phase: VecF32, dt: VecF32) VecF32 {
     _ = dt;
-    const half: @Vector(4, f32) = @splat(0.5);
+    const half: VecF32 = @splat(0.5);
     const mask: @Vector(4, bool) = phase < half;
 
-    const one: @Vector(4, f32) = @splat(1.0);
-    const minus_one: @Vector(4, f32) = @splat(-1.0);
+    const one: VecF32 = @splat(1.0);
+    const minus_one: VecF32 = @splat(-1.0);
     return @select(f32, mask, one, minus_one);
 }
 
@@ -171,11 +174,11 @@ inline fn polyblep(phase: f32, dt: f32) f32 {
 }
 
 /// vectored version of `polyblep` function
-inline fn polyblepV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
     // vector constants
-    const zero: @Vector(4, f32) = @splat(0.0);
-    const one: @Vector(4, f32) = @splat(1.0);
-    const two: @Vector(4, f32) = @splat(2.0);
+    const zero: VecF32 = @splat(0.0);
+    const one: VecF32 = @splat(1.0);
+    const two: VecF32 = @splat(2.0);
 
     // the first step after fall down
     const mask_after = phase < dt;
