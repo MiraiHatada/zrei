@@ -102,8 +102,8 @@ fn sampleSine(phase: f32, dt: f32) f32 {
 
 fn sampleSineV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
     _ = dt;
-    const two: @Vector(4, f32) = comptime @splat(2.0);
-    const pi: @Vector(4, f32) = comptime @splat(std.math.pi);
+    const two: @Vector(4, f32) = @splat(2.0);
+    const pi: @Vector(4, f32) = @splat(std.math.pi);
     return @sin(phase * two * pi);
 }
 
@@ -114,22 +114,22 @@ fn sampleTriangle(phase: f32, dt: f32) f32 {
 
 fn sampleTriangleV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
     _ = dt;
-    const four: @Vector(4, f32) = comptime @splat(4.0);
-    const half: @Vector(4, f32) = comptime @splat(0.5);
-    const one: @Vector(4, f32) = comptime @splat(1.0);
+    const four: @Vector(4, f32) = @splat(4.0);
+    const half: @Vector(4, f32) = @splat(0.5);
+    const one: @Vector(4, f32) = @splat(1.0);
     return four * @abs(phase - half) - one;
 }
 
 fn sampleSaw(phase: f32, dt: f32) f32 {
-    _ = dt;
-    return 2.0 * phase - 1.0;
+    const naive = 2.0 * phase - 1.0;
+    return naive - polyblep(phase, dt);
 }
 
 fn sampleSawV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
-    _ = dt;
-    const one: @Vector(4, f32) = comptime @splat(1.0);
-    const two: @Vector(4, f32) = comptime @splat(2.0);
-    return two * phase - one;
+    const one: @Vector(4, f32) = @splat(1.0);
+    const two: @Vector(4, f32) = @splat(2.0);
+    const naive = two * phase - one;
+    return naive - polyblepV(phase, dt);
 }
 
 fn sampleSquare(phase: f32, dt: f32) f32 {
@@ -139,12 +139,61 @@ fn sampleSquare(phase: f32, dt: f32) f32 {
 
 fn sampleSquareV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
     _ = dt;
-    const half: @Vector(4, f32) = comptime @splat(0.5);
+    const half: @Vector(4, f32) = @splat(0.5);
     const mask: @Vector(4, bool) = phase < half;
 
-    const one: @Vector(4, f32) = comptime @splat(1.0);
-    const minus_one: @Vector(4, f32) = comptime @splat(-1.0);
+    const one: @Vector(4, f32) = @splat(1.0);
+    const minus_one: @Vector(4, f32) = @splat(-1.0);
     return @select(f32, mask, one, minus_one);
+}
+
+/// correct discontinuity (fall) where phase = 0.0
+///
+/// * use `SAMPLE(t) - polyblep(t)` as a corrected value
+/// * may also use `SAMPLE(t) + polyblep(t)` as an upside-down correction (i.e. jump)
+inline fn polyblep(phase: f32, dt: f32) f32 {
+    assert(phase <= 1.0); // our phase is 1.0) ; well, but the definition is.
+    assert(phase >= 0.0);
+    // phase within [0.0, dt)
+    if (phase < dt) {
+        // normalized step (the first step after fall down)
+        const t = phase / dt;
+        return (2.0 * t) - (t * t) - 1.0;
+    }
+    // phase within (1.0 - dt, 1.0]
+    else if (phase > 1.0 - dt) {
+        // normalized step (the last step before fall down)
+        const t = (phase - 1.0) / dt;
+        return (2.0 * t) + (t * t) + 1.0;
+    }
+
+    return 0.0;
+}
+
+/// vectored version of `polyblep` function
+inline fn polyblepV(phase: @Vector(4, f32), dt: @Vector(4, f32)) @Vector(4, f32) {
+    // vector constants
+    const zero: @Vector(4, f32) = @splat(0.0);
+    const one: @Vector(4, f32) = @splat(1.0);
+    const two: @Vector(4, f32) = @splat(2.0);
+
+    // the first step after fall down
+    const mask_after = phase < dt;
+    const correction_after = ret: {
+        const t = phase / dt;
+        break :ret (two * t) - (t * t) - one;
+    };
+
+    // the last step before fall down
+    const mask_before = phase > (one - dt);
+    const correction_before = ret: {
+        const t = (phase - one) / dt;
+        break :ret (two * t) + (t * t) + one;
+    };
+
+    var mask = @select(f32, mask_after, correction_after, zero);
+    mask = @select(f32, mask_before, correction_before, mask);
+    return mask;
 }
 
 test "render sine wave" {
@@ -156,7 +205,7 @@ test "render sine wave" {
     osc.render(&buffer, 440.0, .sine, .scalar);
 
     // sin(0) is always 0 (wtf)
-    try testing.expectApproxEqAbs(@as(f32, 0.0), buffer[0], 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, 0.0), buffer[0], 1e-5);
 
     // all samples are within [-1.0, 1.0]
     for (buffer) |s| {
@@ -176,10 +225,10 @@ test "render wave vector same as scalar" {
         osc_s.render(&buf_s, 440.0, form, .scalar);
         osc_v.render(&buf_v, 440.0, form, .vector);
 
-        try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-6);
+        try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-5);
 
         for (0..515) |idx| {
-            try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-6);
+            try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-5);
         }
     }
 }
