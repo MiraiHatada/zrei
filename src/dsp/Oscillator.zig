@@ -193,7 +193,7 @@ fn sampleSquareV(phase: VecF32, dt: VecF32) VecF32 {
 /// * use `SAMPLE(t) - polyblep(t)` as a corrected value
 /// * may also use `SAMPLE(t) + polyblep(t)` as an upside-down correction (i.e. jump)
 inline fn polyblep(phase: f32, dt: f32) f32 {
-    assert(phase <= 1.0); // our phase is 1.0) ; well, but the definition is.
+    assert(phase <= 1.0); // our phase is [0.0, 1.0) ; well, but the definition is.
     assert(phase >= 0.0);
     // phase within [0.0, dt)
     if (phase < dt) {
@@ -225,14 +225,14 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
     // the first step after fall down
     const mask_after = phase < dt;
     const correction_after = ret: {
-        const t = phase / dt; // fixme: phase * inv_dt
+        const t = phase / dt; // todo optimize: phase * inv_dt
         break :ret (two * t) - (t * t) - one;
     };
 
     // the last step before fall down
     const mask_before = phase > (one - dt);
     const correction_before = ret: {
-        const t = (phase - one) / dt; // fixme: (phase - one) * inv_dt
+        const t = (phase - one) / dt; // todo optimize: (phase - one) * inv_dt
         break :ret (two * t) + (t * t) + one;
     };
 
@@ -241,7 +241,7 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
     return correction;
 }
 
-/// strait up integral of polyblep
+/// straight up integral of polyblep
 ///
 /// for any function that has a mountaintop at phase = 0.0, \
 /// assume `k = f''(before_mountaintop) - f''(after_mountaintop)`, then

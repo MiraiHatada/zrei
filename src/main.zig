@@ -57,7 +57,7 @@ fn runRender(io: Io, args: []const []const u8) !u8 {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {
-        log.err("failed to rendering waveform: {s}", .{@tagName(rc)});
+        log.err("failed to render waveform: {s}", .{@tagName(rc)});
         return 1;
     }
     try writer.flush();
