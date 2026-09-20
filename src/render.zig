@@ -6,7 +6,7 @@ const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
-pub const RenderWav = union(enum) { ok, fail: []const u8 };
+pub const RenderWav = enum { ok, exceeded_4gb };
 /// fixme: more specific arguments about sound
 pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const sample_rate: u32 = comptime 48000;
@@ -18,7 +18,7 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     const samples_size = @as(usize, sample_rate) * sec;
     const res = format.wav.createHeader(fmt, samples_size);
     switch (res) {
-        .exceeded_4gb => return .{ .fail = "Riff Wav can't be larger than 4GB" },
+        .exceeded_4gb => return .exceeded_4gb,
         .ok => |bytes| {
             try sink.writeAll(&bytes);
         },
