@@ -104,6 +104,15 @@ FCISやImpureim Sandwichはしばしば[連続的なIOの組み合わせの複�
     fn encode(data: Data) [64]u8     // 2. 呼び出し元スタックに書かれる
     ```
 
+## branch prediction
+
+x86-64にロックインした用語を使うが、AArch64でも同等のことが主張される。
+
+- `if`や`switch`(≒`jxx`命令全般)はできる限り[ループや関数の外側に。](https://matklad.github.io/2023/11/15/push-ifs-up-and-fors-down.html)
+- `switch`される集合は`0, 1, 2, 3...`(デフォルトの`enum`)のような連続値を持つとき`jmp [table + rax*8]`最適化を受けられる。
+- 極端な手動最適化(Branchless Bitwise Hack)を避ける。手書きのなんちゃって`cmov`のせいでLLVMは`blend`を使えなくなる。
+- 正しく使われた`assert`は分岐を最適化させ、正しく使われた`comptime`はバイナリから分岐自体を減らす。
+
 ## error handling
 
 - [エラーの分類](https://joeduffyblog.com/2016/02/07/the-error-model/#bugs-arent-recoverable-errors)を徹底する:
