@@ -69,7 +69,7 @@ FCISやImpureim Sandwichはしばしば[連続的なIOの組み合わせの複�
 - const参照渡し `fn func(arg: *const Struct)` を**基本的に避ける**
   - 読み取り専用: `fn func(arg: Struct)`、読み書き: `fn func(arg: *Struct)` を使う。
   - Zigは値渡しパラメータを自動でメモリ最適に最適化する。プログラマがサイズを計算して`*const`を指定する必要はない。
-  - `*const Struct`は標準ライブラリのように構造体のアドレス同一性(`@fieldParentPtr`等)を要求する場合にのみ用いる。
+  - `*const Struct`は標準ライブラリに倣って構造体のアドレス同一性(`@fieldParentPtr`等)を要求する場合にのみ用いる。
   - C ABI境界では実際の呼び出し規約に従う。
 
 ## stack size 
@@ -111,7 +111,7 @@ FCISやImpureim Sandwichはしばしば[連続的なIOの組み合わせの複�
   2. **環境・システムエラー**: IO例外、OOM等。外部要因の失敗は`!T` (Error Set) で透過的に伝播させる。
   3. **想定された失敗**: 制約違反や仕様上の分岐。正常な値として代数型で返す。\
 検討する代数型は次元数の低い順に `bool` → `enum` → `?T` → `union(enum)` or `struct Result {...}` 
-- 連続するリソース確保のシステム失敗点では `errdefer` ガードを用いる。
+- 連続するリソース確保のシステム失敗点では`defer`/`errdefer`ガードを用いる。
 - モジュールの非公開API領域で大域脱出のために`!T`を用いることは、それが境界に漏れない限り咎めない。
 
 ## trivial

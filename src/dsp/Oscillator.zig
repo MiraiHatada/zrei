@@ -4,13 +4,13 @@ const Oscillator = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-// alias for the vector type used in simd arithmetic
-const VecF32 = @Vector(4, f32);
-
 /// phase accumulator, 0 ≤ phase < 1
 phase: f64,
-/// sample rate (sample per sec)
+/// sample rate (samples per sec)
 sample_rate: f64,
+
+// alias for the vector type used in simd arithmetic
+const VecF32 = @Vector(4, f32);
 
 /// how to sample the phase
 pub const WaveForm = enum { sine, triangle, saw, square };
@@ -99,12 +99,12 @@ inline fn renderLoopV(
 }
 
 fn sampleSine(phase: f32, dt: f32) f32 {
-    _ = dt;
+    _ = dt; // sine wave has C^∞ continuity
     return @sin(phase * 2.0 * std.math.pi);
 }
 
 fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
-    _ = dt;
+    _ = dt; // sine wave has C^∞ continuity
     const two: VecF32 = @splat(2.0);
     const pi: VecF32 = @splat(std.math.pi);
     return @sin(phase * two * pi);
@@ -136,21 +136,37 @@ fn sampleSawV(phase: VecF32, dt: VecF32) VecF32 {
 }
 
 fn sampleSquare(phase: f32, dt: f32) f32 {
-    _ = dt;
-    return if (phase < 0.5) 1.0 else -1.0;
+    var sample: f32 = if (phase < 0.5) 1.0 else -1.0;
+
+    // correct the jump at phase = 0.0
+    sample += polyblep(phase, dt);
+    // correct the fall at phase = 0.5
+    var shifted = phase + 0.5;
+    if (shifted >= 1.0) shifted -= 1.0; // mod 1.0
+    sample -= polyblep(shifted, dt);
+
+    return sample;
 }
 
 fn sampleSquareV(phase: VecF32, dt: VecF32) VecF32 {
-    _ = dt;
+    // vector constants
     const half: VecF32 = @splat(0.5);
-    const mask: @Vector(4, bool) = phase < half;
-
     const one: VecF32 = @splat(1.0);
     const minus_one: VecF32 = @splat(-1.0);
-    return @select(f32, mask, one, minus_one);
+
+    // determines actual sample (mask ? 1 : 0)
+    const mask: @Vector(4, bool) = phase < half;
+    var sample = @select(f32, mask, one, minus_one);
+
+    // correct the jump and fall
+    var shifted = phase + half;
+    shifted -= @floor(shifted); // mod 1.0
+    sample = sample + polyblepV(phase, dt) - polyblepV(shifted, dt);
+
+    return sample;
 }
 
-/// correct discontinuity (fall) where phase = 0.0
+/// correct discontinuity (-2.0 fall) where phase = 0.0
 ///
 /// * use `SAMPLE(t) - polyblep(t)` as a corrected value
 /// * may also use `SAMPLE(t) + polyblep(t)` as an upside-down correction (i.e. jump)
@@ -175,6 +191,10 @@ inline fn polyblep(phase: f32, dt: f32) f32 {
 
 /// vectored version of `polyblep` function
 inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
+    // # note: simd shall always stay in branchless
+    // early return with @reduce(.And, ...) will have disadvantage in branch prediction
+    // which should make it slower than to run through all the simd ariths every time
+
     // vector constants
     const zero: VecF32 = @splat(0.0);
     const one: VecF32 = @splat(1.0);
@@ -183,14 +203,14 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
     // the first step after fall down
     const mask_after = phase < dt;
     const correction_after = ret: {
-        const t = phase / dt;
+        const t = phase / dt; // fixme: phase * inv_dt
         break :ret (two * t) - (t * t) - one;
     };
 
     // the last step before fall down
     const mask_before = phase > (one - dt);
     const correction_before = ret: {
-        const t = (phase - one) / dt;
+        const t = (phase - one) / dt; // fixme: (phase - one) * inv_dt
         break :ret (two * t) + (t * t) + one;
     };
 

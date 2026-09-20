@@ -56,8 +56,8 @@ fn runRender(io: Io, args: []const []const u8) !u8 {
     const rc = zrei.render.wav(&writer.interface, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
     };
-    if (rc == .fail) {
-        log.err("failed to rendering waveform: {s}", .{rc.fail});
+    if (rc != .ok) {
+        log.err("failed to rendering waveform: {s}", .{@tagName(rc)});
         return 1;
     }
     try writer.flush();
