@@ -111,16 +111,38 @@ fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
 }
 
 fn sampleTriangle(phase: f32, dt: f32) f32 {
-    _ = dt;
-    return 4.0 * @abs(phase - 0.5) - 1.0;
+    const delta_slope_at_top: f32 = -8.0 * dt; // katamuki no henkaryo
+    const delta_slope_at_bottom: f32 = 8.0 * dt;
+
+    var sample = 4.0 * @abs(phase - 0.5) - 1.0;
+    // correct the mountaintop at phase = 0.0
+    sample += delta_slope_at_top * polyblamp(phase, dt);
+    // correct the valley bottom at phase = 0.5
+    var shifted = phase + 0.5;
+    if (shifted >= 1.0) shifted -= 1.0; // mod 1.0
+    sample += delta_slope_at_bottom * polyblamp(shifted, dt);
+
+    return sample;
 }
 
 fn sampleTriangleV(phase: VecF32, dt: VecF32) VecF32 {
-    _ = dt;
     const four: VecF32 = @splat(4.0);
     const half: VecF32 = @splat(0.5);
     const one: VecF32 = @splat(1.0);
-    return four * @abs(phase - half) - one;
+    const eight: VecF32 = @splat(8.0);
+    const neg_eight: VecF32 = @splat(-8.0);
+
+    const delta_slope_at_top = neg_eight * dt;
+    const delta_slope_at_bottom = eight * dt;
+
+    var sample = four * @abs(phase - half) - one;
+    // correct the mountaintop and the valley bottom
+    var shifted = phase + half;
+    shifted -= @floor(shifted); // mod 1.0
+    sample = sample + (delta_slope_at_top * polyblampV(phase, dt)) +
+        (delta_slope_at_bottom * polyblampV(shifted, dt));
+
+    return sample;
 }
 
 fn sampleSaw(phase: f32, dt: f32) f32 {
@@ -177,7 +199,7 @@ inline fn polyblep(phase: f32, dt: f32) f32 {
     if (phase < dt) {
         // normalized step (the first step after fall down)
         const t = phase / dt;
-        return (2.0 * t) - (t * t) - 1.0;
+        return (2.0 * t) - (t * t) - 1.0; // to be substracted: -(-(t - 1))
     }
     // phase within (1.0 - dt, 1.0]
     else if (phase > 1.0 - dt) {
@@ -214,9 +236,62 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
         break :ret (two * t) + (t * t) + one;
     };
 
-    var mask = @select(f32, mask_after, correction_after, zero);
-    mask = @select(f32, mask_before, correction_before, mask);
-    return mask;
+    var correction = @select(f32, mask_after, correction_after, zero);
+    correction = @select(f32, mask_before, correction_before, correction);
+    return correction;
+}
+
+/// strait up integral of polyblep
+///
+/// for any function that has a mountaintop at phase = 0.0, \
+/// assume `k = f''(before_mountaintop) - f''(after_mountaintop)`, then
+/// * `SAMPLE(t) + (k * polyblamp(t))` for mountain top correction
+/// * the same stands for valley bottom correction
+inline fn polyblamp(phase: f32, dt: f32) f32 {
+    assert(phase <= 1.0);
+    assert(phase >= 0.0);
+
+    // the step right after mountaintop
+    if (phase < dt) {
+        const t = phase / dt;
+        const d = 1.0 - t;
+        return d * d * d / 6.0;
+    }
+    // the step right before mountaintop
+    if (phase > 1.0 - dt) {
+        const t = (phase - 1.0) / dt;
+        const d = 1.0 + t;
+        return d * d * d / 6.0;
+    }
+
+    return 0.0;
+}
+
+/// vectored version of `polyblamp` function
+inline fn polyblampV(phase: VecF32, dt: VecF32) VecF32 {
+    const zero: VecF32 = @splat(0.0);
+    const one: VecF32 = @splat(1.0);
+    const one_six: VecF32 = @splat(1.0 / 6.0);
+
+    // the step right after mountaintop
+    const mask_after = phase < dt;
+    const correction_after = ret: {
+        const t = phase / dt;
+        const d = one - t;
+        break :ret one_six * d * d * d;
+    };
+
+    // the step right before mountaintop
+    const mask_before = phase > (one - dt);
+    const correction_before = ret: {
+        const t = (phase - one) / dt;
+        const d = one + t;
+        break :ret one_six * d * d * d;
+    };
+
+    var correction = @select(f32, mask_after, correction_after, zero);
+    correction = @select(f32, mask_before, correction_before, correction);
+    return correction;
 }
 
 test "render sine wave" {
