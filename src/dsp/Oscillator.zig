@@ -199,7 +199,7 @@ inline fn polyblep(phase: f32, dt: f32) f32 {
     if (phase < dt) {
         // normalized step (the first step after fall down)
         const t = phase / dt;
-        return (2.0 * t) - (t * t) - 1.0; // to be substracted: -(-(t - 1))
+        return (2.0 * t) - (t * t) - 1.0; // to be subtracted: -(-(t - 1)^2)
     }
     // phase within (1.0 - dt, 1.0]
     else if (phase > 1.0 - dt) {
