@@ -111,16 +111,17 @@ fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
 }
 
 fn sampleTriangle(phase: f32, dt: f32) f32 {
-    const delta_slope_at_top: f32 = -8.0 * dt; // katamuki no henkaryo
-    const delta_slope_at_bottom: f32 = 8.0 * dt;
+    const delta_slope: f32 = 8.0 * dt; // katamuki no henkaryo
 
     var sample = 4.0 * @abs(phase - 0.5) - 1.0;
-    // correct the mountaintop at phase = 0.0
-    sample += delta_slope_at_top * polyblamp(phase, dt);
-    // correct the valley bottom at phase = 0.5
+    // the valley bottom is at phase = 0.5
     var shifted = phase + 0.5;
     if (shifted >= 1.0) shifted -= 1.0; // mod 1.0
-    sample += delta_slope_at_bottom * polyblamp(shifted, dt);
+
+    // corrected = sample + (-delta_slope * pbm(top)) + (delta_slope * pbm(bottom))
+    // can be factorize to:
+    //   corrected = sample + delta_slope * (pbm(bottom) - pbm(top))
+    sample += delta_slope * (polyblamp(shifted, dt) - polyblamp(phase, dt));
 
     return sample;
 }
@@ -130,17 +131,14 @@ fn sampleTriangleV(phase: VecF32, dt: VecF32) VecF32 {
     const half: VecF32 = @splat(0.5);
     const one: VecF32 = @splat(1.0);
     const eight: VecF32 = @splat(8.0);
-    const neg_eight: VecF32 = @splat(-8.0);
 
-    const delta_slope_at_top = neg_eight * dt;
-    const delta_slope_at_bottom = eight * dt;
+    const delta_slope = eight * dt;
 
     var sample = four * @abs(phase - half) - one;
     // correct the mountaintop and the valley bottom
     var shifted = phase + half;
     shifted -= @floor(shifted); // mod 1.0
-    sample = sample + (delta_slope_at_top * polyblampV(phase, dt)) +
-        (delta_slope_at_bottom * polyblampV(shifted, dt));
+    sample += delta_slope * (polyblampV(shifted, dt) - polyblampV(phase, dt));
 
     return sample;
 }
@@ -276,7 +274,7 @@ inline fn polyblampV(phase: VecF32, dt: VecF32) VecF32 {
     // the step right after mountaintop
     const mask_after = phase < dt;
     const correction_after = ret: {
-        const t = phase / dt;
+        const t = phase / dt; // todo optimize: phase * inv_dt
         const d = one - t;
         break :ret one_six * d * d * d;
     };
@@ -284,7 +282,7 @@ inline fn polyblampV(phase: VecF32, dt: VecF32) VecF32 {
     // the step right before mountaintop
     const mask_before = phase > (one - dt);
     const correction_before = ret: {
-        const t = (phase - one) / dt;
+        const t = (phase - one) / dt; // todo optimize: (phase - one) * inv_dt
         const d = one + t;
         break :ret one_six * d * d * d;
     };
