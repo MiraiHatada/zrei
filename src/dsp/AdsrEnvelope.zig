@@ -9,7 +9,7 @@ params: Params,
 
 state: State = .idle,
 current_level: f32 = 0.0,
-level_on_release: ?f32 = null,
+release_step: f32 = 0.0,
 
 /// adsr envelope state
 pub const State = enum {
@@ -52,14 +52,20 @@ pub fn apply(self: *AdsrEnvelope, buffer: []f32) void {
 /// key press; start attack phase
 pub fn onKeyPress(self: *AdsrEnvelope) void {
     self.state = .attack;
-    self.level_on_release = null;
+    self.release_step = 0.0;
 }
 
 /// key release; start release phase if not idle
 pub fn onKeyRelease(self: *AdsrEnvelope) void {
     if (self.state != .idle) {
-        self.level_on_release = self.current_level;
-        self.state = .release;
+        if (self.params.release_sec <= 0.0) {
+            self.current_level = 0.0;
+            self.state = .idle;
+        } else {
+            // pre calculate release_step to reach 0.0 in release_sec
+            self.release_step = self.current_level / (self.params.release_sec * self.sample_rate);
+            self.state = .release;
+        }
     }
 }
 
@@ -104,21 +110,17 @@ fn next(self: *AdsrEnvelope) f32 {
             self.current_level = self.params.sustain_level;
         },
         .release => {
-            assert(self.level_on_release != null);
-            const base_level = self.level_on_release.?;
-
             if (self.params.release_sec <= 0.0) {
                 self.current_level = 0.0;
-                self.level_on_release = null;
+                self.release_step = 0.0;
                 self.state = .idle;
             } else {
-                // in order to reach 0.0 in release_sec
-                const step = base_level / (self.params.release_sec * self.sample_rate);
-                self.current_level -= step;
+                assert(self.release_step > 0.0);
+                self.current_level -= self.release_step;
 
                 if (self.current_level <= 0.0) {
                     self.current_level = 0.0;
-                    self.level_on_release = null;
+                    self.release_step = 0.0;
                     self.state = .idle;
                 }
             }
