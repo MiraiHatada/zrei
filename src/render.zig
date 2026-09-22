@@ -44,9 +44,11 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
 
 test wav {
     const testing = std.testing;
+    const allocator = testing.allocator;
     // 48000 * 2 = 96000
-    var buffer: [44 + 96000]u8 = undefined;
-    var sink = Io.Writer.fixed(&buffer);
+    var buffer: []u8 = try allocator.alloc(u8, 44 + 96000);
+    defer allocator.free(buffer);
+    var sink = Io.Writer.fixed(buffer);
 
     const res = try wav(&sink, 1);
     try testing.expectEqual(.ok, res);
