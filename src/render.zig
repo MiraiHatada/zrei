@@ -33,7 +33,7 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     while (offset < samples_size) {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
-        osc.render(chunk, 440.0, .square, .vector);
+        osc.render(chunk, 440.0, .square);
         const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
         try sink.writeAll(data);
         offset += chunk_size;
