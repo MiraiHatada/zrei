@@ -12,6 +12,7 @@ pub const render = @import("render.zig");
 // explicit imports for every file with specs
 test {
     _ = @import("dsp/Oscillator.zig");
+    _ = @import("dsp/AdsrEnvelope.zig");
     _ = @import("dsp/pitch.zig");
     _ = @import("format/wav.zig");
     _ = @import("render.zig");
