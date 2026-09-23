@@ -152,7 +152,7 @@ pub const Tuning = struct {
     }
 };
 
-test "Tuning: equal temperament a4 c4" {
+test "tune equal temperament note" {
     const testing = std.testing;
 
     const tuning: Tuning = .init(440.0, .equal);
@@ -162,7 +162,7 @@ test "Tuning: equal temperament a4 c4" {
     try testing.expectEqual(tuning.hzOfNote(.A4), tuning.hzOfNoteNumber(69));
 }
 
-test "Tuning: just intonation C major chord" {
+test "tune just intonation chord" {
     const testing = std.testing;
 
     const tuning: Tuning = .init(440.0, .just);
@@ -182,7 +182,7 @@ test "Tuning: just intonation C major chord" {
     try testing.expectApproxEqAbs(c4 * 0.5, c3, 1e-6);
 }
 
-test "Tuning: switch tonic in just intonation" {
+test "switch tonic in just intonation" {
     const testing = std.testing;
 
     var tuning: Tuning = .init(440.0, .just);
@@ -208,7 +208,7 @@ test "Tuning: switch tonic in just intonation" {
     try testing.expectApproxEqAbs(g4_on_g * 1.5, d5, 1e-6);
 }
 
-test "Tuning: all 128 frequencies valid and increasing" {
+test "verify monotonic frequencies" {
     const testing = std.testing;
 
     const eq: Tuning = .init(440.0, .equal);

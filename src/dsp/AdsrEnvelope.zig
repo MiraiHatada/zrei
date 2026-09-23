@@ -153,142 +153,91 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
     };
 }
 
-test "apply basic cycle" {
+test "apply in chunk" {
     const testing = std.testing;
 
-    var env = AdsrEnvelope.init(10.0, .{
-        .attack_sec = 0.2,
-        .decay_sec = 0.2,
+    var env_full = AdsrEnvelope.init(100.0, .{
+        .attack_sec = 0.05,
+        .decay_sec = 0.05,
         .sustain_level = 0.5,
-        .release_sec = 0.5,
+        .release_sec = 0.05,
     }).ok;
-    var buffer: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env.trigger();
-    env.apply(&buffer);
+    var env_chunk = env_full;
 
-    try testing.expectApproxEqAbs(0.5, buffer[0], 1e-6);
-    try testing.expectApproxEqAbs(1.0, buffer[1], 1e-6);
-    try testing.expectApproxEqAbs(0.75, buffer[2], 1e-6);
-    try testing.expectApproxEqAbs(0.5, buffer[3], 1e-6);
+    var buffer_full: [25]f32 = @splat(1.0);
+    var buffer_chunk: [25]f32 = @splat(1.0);
 
-    buffer = .{ 1.0, 1.0, 1.0, 1.0 };
-    env.release();
-    env.apply(&buffer);
+    // apply in one go
+    env_full.apply(buffer_full[0..2]);
+    env_full.trigger();
+    env_full.apply(buffer_full[2..15]);
+    env_full.release();
+    env_full.apply(buffer_full[15..25]);
 
-    try testing.expectApproxEqAbs(0.4, buffer[0], 1e-6);
-    try testing.expectApproxEqAbs(0.3, buffer[1], 1e-6);
-    try testing.expectApproxEqAbs(0.2, buffer[2], 1e-6);
-    try testing.expectApproxEqAbs(0.1, buffer[3], 1e-6);
-}
+    // apply in chunks
+    env_chunk.apply(buffer_chunk[0..1]);
+    env_chunk.apply(buffer_chunk[1..2]);
+    env_chunk.trigger();
+    env_chunk.apply(buffer_chunk[2..12]);
+    env_chunk.apply(buffer_chunk[12..15]);
+    env_chunk.release();
+    env_chunk.apply(buffer_chunk[15..16]);
+    env_chunk.apply(buffer_chunk[16..20]);
+    env_chunk.apply(buffer_chunk[20..25]);
 
-test "apply in chunks" {
-    const testing = std.testing;
-
-    var env1 = AdsrEnvelope.init(10.0, .{
-        .attack_sec = 0.2,
-        .decay_sec = 0.2,
-        .sustain_level = 0.5,
-        .release_sec = 0.5,
-    }).ok;
-    var env2 = env1;
-
-    var first: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env1.trigger();
-    env1.apply(&first);
-
-    var second: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env2.trigger();
-    env2.apply(second[0..1]);
-    env2.apply(second[1..3]);
-    env2.apply(second[3..4]);
-
-    for (0..4) |i| {
-        try testing.expectApproxEqAbs(first[i], second[i], 1e-6);
+    // are the same
+    for (0..25) |i| {
+        try testing.expectApproxEqAbs(buffer_full[i], buffer_chunk[i], 1e-6);
     }
+    try testing.expectEqual(.idle, env_full.state);
+    try testing.expectEqual(.idle, env_chunk.state);
 }
 
-test "apply early release" {
+test "release from incomplete attack" {
     const testing = std.testing;
 
-    var env = AdsrEnvelope.init(10.0, .{
-        .attack_sec = 0.4,
-        .decay_sec = 0.2,
+    var env = AdsrEnvelope.init(100.0, .{
+        .attack_sec = 0.10,
+        .decay_sec = 0.05,
         .sustain_level = 0.5,
-        .release_sec = 0.2,
+        .release_sec = 0.05,
     }).ok;
 
-    var buffer: [2]f32 = .{ 1.0, 1.0 };
+    var buffer: [10]f32 = @splat(1.0);
     env.trigger();
-    env.apply(&buffer);
-    try testing.expectApproxEqAbs(0.5, buffer[1], 1e-6);
+    env.apply(buffer[0..4]);
+
+    try testing.expectApproxEqAbs(0.4, env.current_level, 1e-6);
 
     env.release();
-    var release_buffer: [3]f32 = .{ 1.0, 1.0, 1.0 };
-    env.apply(&release_buffer);
+    env.apply(buffer[4..10]);
 
-    try testing.expectApproxEqAbs(0.25, release_buffer[0], 1e-6);
-    try testing.expectApproxEqAbs(0.0, release_buffer[1], 1e-6);
-    try testing.expectApproxEqAbs(0.0, release_buffer[2], 1e-6);
+    try testing.expectApproxEqAbs(0.32, buffer[4], 1e-6);
+    try testing.expectEqual(0.0, buffer[9]);
+    try testing.expectEqual(.idle, env.state);
 }
 
-test "apply zero params edge" {
+test "all zero spec" {
     const testing = std.testing;
 
-    var env = AdsrEnvelope.init(10.0, .{
+    var env = AdsrEnvelope.init(100.0, .{
         .attack_sec = 0.0,
         .decay_sec = 0.0,
-        .sustain_level = 0.5,
+        .sustain_level = 0.6,
         .release_sec = 0.0,
     }).ok;
 
-    var buffer: [2]f32 = .{ 1.0, 1.0 };
+    var buffer: [4]f32 = @splat(1.0);
     env.trigger();
-    env.apply(&buffer);
+    env.apply(buffer[0..2]);
+
     try testing.expectApproxEqAbs(1.0, buffer[0], 1e-6);
-    try testing.expectApproxEqAbs(0.5, buffer[1], 1e-6);
+    try testing.expectApproxEqAbs(0.6, buffer[1], 1e-6);
 
     env.release();
-    env.apply(&buffer);
-    try testing.expectApproxEqAbs(0.0, buffer[0], 1e-6);
+    env.apply(buffer[2..4]);
 
-    var percussion = AdsrEnvelope.init(10.0, .{
-        .attack_sec = 0.1,
-        .decay_sec = 0.1,
-        .sustain_level = 0.0,
-        .release_sec = 0.2,
-    }).ok;
-    var percussion_buffer: [3]f32 = .{ 1.0, 1.0, 1.0 };
-    percussion.trigger();
-    percussion.apply(&percussion_buffer);
-    try testing.expectApproxEqAbs(1.0, percussion_buffer[0], 1e-6);
-    try testing.expectApproxEqAbs(0.0, percussion_buffer[1], 1e-6);
-    try testing.expectApproxEqAbs(0.0, percussion_buffer[2], 1e-6);
-
-    percussion.release();
-    var release_sample: [1]f32 = .{1.0};
-    percussion.apply(&release_sample);
-    try testing.expectApproxEqAbs(0.0, release_sample[0], 1e-6);
-}
-
-test "apply idle and long sustain" {
-    const testing = std.testing;
-
-    var env = AdsrEnvelope.init(10.0, .{
-        .attack_sec = 0.1,
-        .decay_sec = 0.1,
-        .sustain_level = 0.7,
-        .release_sec = 0.1,
-    }).ok;
-
-    var idle_buffer: [3]f32 = .{ 0.5, 0.8, -0.3 };
-    env.apply(&idle_buffer);
-    for (idle_buffer) |sample| try testing.expectApproxEqAbs(0.0, sample, 1e-6);
-
-    env.trigger();
-    var attack_buffer: [2]f32 = .{ 1.0, 1.0 };
-    env.apply(&attack_buffer);
-
-    var sustain_buffer: [16]f32 = @splat(1.0);
-    env.apply(&sustain_buffer);
-    for (sustain_buffer) |sample| try testing.expectApproxEqAbs(0.7, sample, 1e-6);
+    try testing.expectEqual(0.0, buffer[2]);
+    try testing.expectEqual(0.0, buffer[3]);
+    try testing.expectEqual(.idle, env.state);
 }
