@@ -7,7 +7,8 @@ on:
   pull_request:
 
 jobs:
-  test:
+  linux:
+    name: linux
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,4 +40,43 @@ jobs:
         run: zig build test --summary all
 
       - name: run main
-        run: zig build run --summary all
+        run: zig build run --summary all -- render
+
+  windows:
+    name: windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: cache zig
+        id: cache-zig
+        uses: actions/cache@v6
+        with:
+          path: C:/zig
+          key: zig-x86_64-windows-0.16.0
+
+      - name: install zig
+        if: steps.cache-zig.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path C:/zig
+          curl.exe -sSL https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip -o "$env:RUNNER_TEMP/zig.zip"
+          tar.exe -xf "$env:RUNNER_TEMP/zig.zip" --strip-components=1 -C C:/zig
+          Remove-Item "$env:RUNNER_TEMP/zig.zip"
+
+      - name: add zig to path
+        shell: pwsh
+        run: echo "C:/zig" >> $env:GITHUB_PATH
+
+      - name: check compile
+        shell: pwsh
+        run: zig build check --summary all
+
+      - name: run tests
+        shell: pwsh
+        run: zig build test --summary all
+
+      - name: run main
+        shell: pwsh
+        run: zig build run --summary all -- render
