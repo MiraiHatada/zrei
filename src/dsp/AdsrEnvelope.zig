@@ -57,13 +57,13 @@ pub fn apply(self: *AdsrEnvelope, buffer: []f32) void {
 }
 
 /// key press; start attack phase
-pub fn onKeyPress(self: *AdsrEnvelope) void {
+pub fn trigger(self: *AdsrEnvelope) void {
     self.state = .attack;
     self.release_step = 0.0;
 }
 
 /// key release; start release phase if not idle
-pub fn onKeyRelease(self: *AdsrEnvelope) void {
+pub fn release(self: *AdsrEnvelope) void {
     if (self.state != .idle) {
         if (self.params.release_sec <= 0.0 or self.current_level <= 0.0) {
             self.current_level = 0.0;
@@ -163,7 +163,7 @@ test "apply basic cycle" {
         .release_sec = 0.5,
     }).ok;
     var buffer: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env.onKeyPress();
+    env.trigger();
     env.apply(&buffer);
 
     try testing.expectApproxEqAbs(0.5, buffer[0], 1e-6);
@@ -172,7 +172,7 @@ test "apply basic cycle" {
     try testing.expectApproxEqAbs(0.5, buffer[3], 1e-6);
 
     buffer = .{ 1.0, 1.0, 1.0, 1.0 };
-    env.onKeyRelease();
+    env.release();
     env.apply(&buffer);
 
     try testing.expectApproxEqAbs(0.4, buffer[0], 1e-6);
@@ -193,11 +193,11 @@ test "apply in chunks" {
     var env2 = env1;
 
     var first: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env1.onKeyPress();
+    env1.trigger();
     env1.apply(&first);
 
     var second: [4]f32 = .{ 1.0, 1.0, 1.0, 1.0 };
-    env2.onKeyPress();
+    env2.trigger();
     env2.apply(second[0..1]);
     env2.apply(second[1..3]);
     env2.apply(second[3..4]);
@@ -218,11 +218,11 @@ test "apply early release" {
     }).ok;
 
     var buffer: [2]f32 = .{ 1.0, 1.0 };
-    env.onKeyPress();
+    env.trigger();
     env.apply(&buffer);
     try testing.expectApproxEqAbs(0.5, buffer[1], 1e-6);
 
-    env.onKeyRelease();
+    env.release();
     var release_buffer: [3]f32 = .{ 1.0, 1.0, 1.0 };
     env.apply(&release_buffer);
 
@@ -242,12 +242,12 @@ test "apply zero params edge" {
     }).ok;
 
     var buffer: [2]f32 = .{ 1.0, 1.0 };
-    env.onKeyPress();
+    env.trigger();
     env.apply(&buffer);
     try testing.expectApproxEqAbs(1.0, buffer[0], 1e-6);
     try testing.expectApproxEqAbs(0.5, buffer[1], 1e-6);
 
-    env.onKeyRelease();
+    env.release();
     env.apply(&buffer);
     try testing.expectApproxEqAbs(0.0, buffer[0], 1e-6);
 
@@ -258,13 +258,13 @@ test "apply zero params edge" {
         .release_sec = 0.2,
     }).ok;
     var percussion_buffer: [3]f32 = .{ 1.0, 1.0, 1.0 };
-    percussion.onKeyPress();
+    percussion.trigger();
     percussion.apply(&percussion_buffer);
     try testing.expectApproxEqAbs(1.0, percussion_buffer[0], 1e-6);
     try testing.expectApproxEqAbs(0.0, percussion_buffer[1], 1e-6);
     try testing.expectApproxEqAbs(0.0, percussion_buffer[2], 1e-6);
 
-    percussion.onKeyRelease();
+    percussion.release();
     var release_sample: [1]f32 = .{1.0};
     percussion.apply(&release_sample);
     try testing.expectApproxEqAbs(0.0, release_sample[0], 1e-6);
@@ -284,7 +284,7 @@ test "apply idle and long sustain" {
     env.apply(&idle_buffer);
     for (idle_buffer) |sample| try testing.expectApproxEqAbs(0.0, sample, 1e-6);
 
-    env.onKeyPress();
+    env.trigger();
     var attack_buffer: [2]f32 = .{ 1.0, 1.0 };
     env.apply(&attack_buffer);
 

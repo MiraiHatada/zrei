@@ -9,11 +9,11 @@ phase: f64,
 /// sample rate (samples per sec)
 sample_rate: f64,
 
+/// how to sample the phase
+pub const WaveForm = enum { sine, triangle, saw, square };
+
 // alias for the vector type used in simd arithmetic
 const VecF32 = @Vector(4, f32);
-
-/// how to sample the phase
-const WaveForm = enum { sine, triangle, saw, square };
 
 /// sampling mode (scalar version for testing)
 const Mode = enum { scalar, vector };
