@@ -5,6 +5,7 @@ const dsp = @import("../dsp.zig");
 const Oscillator = dsp.Oscillator;
 const AdsrEnvelope = dsp.AdsrEnvelope;
 const std = @import("std");
+const assert = std.debug.assert;
 
 oscillator: Oscillator,
 envelope: AdsrEnvelope,
@@ -30,6 +31,8 @@ pub const Init = union(enum) { ok: Voice, invalid_sustain_level };
 
 /// start playing a note of `frequency` Hz
 pub fn noteOn(self: *Voice, frequency: f64) void {
+    assert(frequency > 0.0);
+    assert(frequency < 0.5 * self.oscillator.sample_rate);
     self.frequency = frequency;
     self.envelope.trigger();
 }
@@ -41,6 +44,8 @@ pub fn noteOff(self: *Voice) void {
 
 /// move pitch to `frequency` Hz without envelope action
 pub fn noteMove(self: *Voice, frequency: f64) void {
+    assert(frequency > 0.0);
+    assert(frequency < 0.5 * self.oscillator.sample_rate);
     self.frequency = frequency;
 }
 
@@ -48,6 +53,7 @@ pub fn noteMove(self: *Voice, frequency: f64) void {
 ///
 /// * `buffer` is modified in place
 pub fn render(self: *Voice, buffer: []f32) void {
+    assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
         @memset(buffer, 0.0);
         return;
