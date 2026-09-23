@@ -48,8 +48,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-        with:
-          autocrlf: false
 
       - name: cache zig
         id: cache-zig
