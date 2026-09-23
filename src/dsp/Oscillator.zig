@@ -9,14 +9,14 @@ phase: f64,
 /// sample rate (samples per sec)
 sample_rate: f64,
 
-// alias for the vector type used in simd arithmetic
-const VecF32 = @Vector(4, f32);
-
 /// how to sample the phase
 pub const WaveForm = enum { sine, triangle, saw, square };
 
-/// sampling mode
-pub const Mode = enum { scalar, vector };
+// alias for the vector type used in simd arithmetic
+const VecF32 = @Vector(4, f32);
+
+/// sampling mode (scalar version for testing)
+const Mode = enum { scalar, vector };
 
 /// `sample_rate` typically 44.1kHz or 48kHz
 pub fn init(sample_rate: f64) Oscillator {
@@ -27,10 +27,14 @@ pub fn init(sample_rate: f64) Oscillator {
 }
 
 /// an oscillator
-/// fixme: do i need to put scalar option as public api?
 ///
-/// assumes `frequency` is lower than the nyquist frequency
-pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, mode: Mode) void {
+/// * assumes `frequency` is lower than the nyquist frequency
+pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm) void {
+    self.renderInner(buffer, frequency, waveform, .vector);
+}
+
+/// internally accept the scalar `mode` for examination
+fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, mode: Mode) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
     // frequency < nyquist_frequency
@@ -298,7 +302,7 @@ test "render sine wave" {
     var buffer: [512]f32 = undefined;
 
     // la
-    osc.render(&buffer, 440.0, .sine, .scalar);
+    osc.render(&buffer, 440.0, .sine);
 
     // sin(0) is always 0 (wtf)
     try testing.expectApproxEqAbs(@as(f32, 0.0), buffer[0], 1e-5);
@@ -318,8 +322,8 @@ test "render wave vector same as scalar" {
         var buf_s: [515]f32 = undefined;
         var buf_v: [515]f32 = undefined;
 
-        osc_s.render(&buf_s, 440.0, form, .scalar);
-        osc_v.render(&buf_v, 440.0, form, .vector);
+        osc_s.renderInner(&buf_s, 440.0, form, .scalar);
+        osc_v.renderInner(&buf_v, 440.0, form, .vector);
 
         try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-5);
 
