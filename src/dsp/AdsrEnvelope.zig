@@ -4,12 +4,12 @@ const AdsrEnvelope = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 
-sample_rate: f32,
+sample_rate: f64,
 params: Params,
 
 state: State = .idle,
-current_level: f32 = 0.0,
-release_step: f32 = 0.0,
+current_level: f64 = 0.0,
+release_step: f64 = 0.0,
 
 /// adsr envelope state
 pub const State = enum {
@@ -22,10 +22,10 @@ pub const State = enum {
 
 /// adsr envelope parameters
 pub const Params = struct {
-    attack_sec: f32,
-    decay_sec: f32,
-    sustain_level: f32,
-    release_sec: f32,
+    attack_sec: f64,
+    decay_sec: f64,
+    sustain_level: f64,
+    release_sec: f64,
 };
 
 /// initialize adsr envelope
@@ -33,7 +33,7 @@ pub const Params = struct {
 /// * `sample_rate` - sample rate in Hz
 /// * `params` - envelope parameters
 /// * err `invalid_sustain_level` :  when `params.sustain_level` not in [0.0, 1.0]
-pub fn init(sample_rate: f32, params: Params) union(enum) { ok: AdsrEnvelope, invalid_sustain_level } {
+pub fn init(sample_rate: f64, params: Params) union(enum) { ok: AdsrEnvelope, invalid_sustain_level } {
     if (params.sustain_level < 0.0 or params.sustain_level > 1.0) {
         return .invalid_sustain_level;
     }
@@ -95,9 +95,10 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
             const attack_step = 1.0 / (self.params.attack_sec * self.sample_rate);
             for (buffer, 1..) |*sample, i| {
                 self.current_level += attack_step;
-                sample.* *= @min(self.current_level, 1.0);
+                sample.* *= @min(to32(self.current_level), 1.0);
 
-                if (self.current_level >= 1.0) {
+                const tolerance = attack_step * 0.5;
+                if (self.current_level >= 1.0 - tolerance) {
                     self.current_level = 1.0;
                     self.state = .decay;
                     break :out i; // consumed samples
@@ -113,11 +114,12 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
             }
             // in order to reach sustain_level in decay_sec
             const decay_step = (1.0 - self.params.sustain_level) / (self.params.decay_sec * self.sample_rate);
+            const tolerance = decay_step * 0.5;
             for (buffer, 1..) |*sample, i| {
                 self.current_level -= decay_step;
-                sample.* *= @max(self.current_level, self.params.sustain_level);
+                sample.* *= @max(to32(self.current_level), to32(self.params.sustain_level));
 
-                if (self.current_level <= self.params.sustain_level) {
+                if (self.current_level <= self.params.sustain_level + tolerance) {
                     self.current_level = self.params.sustain_level;
                     self.state = .sustain;
                     break :out i; // consumed samples
@@ -127,7 +129,7 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
         },
         .sustain => {
             for (buffer) |*sample| {
-                sample.* *= self.params.sustain_level;
+                sample.* *= to32(self.params.sustain_level);
             }
             break :out buffer.len;
         },
@@ -138,11 +140,12 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
                 continue :out .idle;
             }
             assert(self.release_step > 0.0);
+            const tolerance = self.release_step * 0.5;
             for (buffer, 1..) |*sample, i| {
                 self.current_level -= self.release_step;
-                sample.* *= @max(self.current_level, 0.0);
+                sample.* *= @max(to32(self.current_level), 0.0);
 
-                if (self.current_level <= 0.0) {
+                if (self.current_level <= tolerance) {
                     self.current_level = 0.0;
                     self.state = .idle;
                     break :out i; // consumed samples
@@ -151,6 +154,10 @@ fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
             break :out buffer.len;
         },
     };
+}
+
+inline fn to32(value: f64) f32 {
+    return @floatCast(value);
 }
 
 test "apply in chunk" {

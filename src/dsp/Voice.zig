@@ -15,7 +15,7 @@ waveform: Oscillator.WaveForm,
 /// initialize voice, ensure consistency between oscillator and envelope
 pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, adsr_params: AdsrEnvelope.Params) Init {
     const osc = Oscillator.init(sample_rate);
-    const env = switch (AdsrEnvelope.init(@floatCast(sample_rate), adsr_params)) {
+    const env = switch (AdsrEnvelope.init(sample_rate, adsr_params)) {
         .ok => |o| o,
         .invalid_sustain_level => return .invalid_sustain_level,
     };
