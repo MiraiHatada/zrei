@@ -10,7 +10,7 @@ const assert = std.debug.assert;
 pub const a4hz_default: f64 = 440.0;
 
 /// musical note number (midi)
-pub const Note = enum(u7) {
+pub const Letter = enum(u7) {
     C3 = 48,
     Cs3 = 49,
     D3 = 50,
@@ -52,11 +52,11 @@ pub const Note = enum(u7) {
 
     _,
 
-    pub inline fn toInt(self: Note) u7 {
+    pub inline fn toInt(self: Letter) u7 {
         return @intFromEnum(self);
     }
 
-    pub inline fn fromInt(value: u7) Note {
+    pub inline fn fromInt(value: u7) Letter {
         return @enumFromInt(value);
     }
 };
@@ -70,7 +70,7 @@ pub const Tuning = struct {
     /// the A4 frequency in Hz
     a4hz: f64,
     /// the tonic note for just intonation
-    tonic: Note,
+    tonic: Letter,
 
     /// tuning system
     pub const System = enum { equal, just };
@@ -119,15 +119,15 @@ pub const Tuning = struct {
     /// set the tonic note for just intonation and recalculate the pitch table
     ///
     /// * assume `self.system` is just intonation
-    pub fn setTonic(self: *Tuning, note: Note) void {
+    pub fn setTonic(self: *Tuning, tonic: Letter) void {
         assert(self.system == .just);
-        self.tonic = note;
-        calculateJustTable(&self.table, self.a4hz, note);
+        self.tonic = tonic;
+        calculateJustTable(&self.table, self.a4hz, tonic);
     }
 
     /// note frequency in Hz
-    pub inline fn hzOfNote(self: Tuning, note: Note) f64 {
-        return self.table[@intFromEnum(note)];
+    pub inline fn hzOfNoteLetter(self: Tuning, letter: Letter) f64 {
+        return self.table[@intFromEnum(letter)];
     }
 
     /// frequency of a note number (midi) in Hz
@@ -135,7 +135,7 @@ pub const Tuning = struct {
         return self.table[note_number];
     }
 
-    fn calculateJustTable(table: *[128]f64, a4hz: f64, tonic: Note) void {
+    fn calculateJustTable(table: *[128]f64, a4hz: f64, tonic: Letter) void {
         // determine tonic frequency from equal temperament
         const tonic_step = tonic.toInt();
         const tonic_semitone_steps = @as(f64, @floatFromInt(tonic_step)) - 69.0;
@@ -156,21 +156,21 @@ test "tune equal temperament note" {
     const testing = std.testing;
 
     const tuning: Tuning = .init(440.0, .equal);
-    try testing.expectApproxEqAbs(440.0, tuning.hzOfNote(.A4), 1e-6);
+    try testing.expectApproxEqAbs(440.0, tuning.hzOfNoteLetter(.A4), 1e-6);
     // C4 = 440 * 2^(-9/12) ≒ 261.625565
-    try testing.expectApproxEqAbs(261.625565, tuning.hzOfNote(.C4), 1e-6);
-    try testing.expectEqual(tuning.hzOfNote(.A4), tuning.hzOfNoteNumber(69));
+    try testing.expectApproxEqAbs(261.625565, tuning.hzOfNoteLetter(.C4), 1e-6);
+    try testing.expectEqual(tuning.hzOfNoteLetter(.A4), tuning.hzOfNoteNumber(69));
 }
 
 test "tune just intonation chord" {
     const testing = std.testing;
 
     const tuning: Tuning = .init(440.0, .just);
-    const c3 = tuning.hzOfNote(.C3);
-    const c4 = tuning.hzOfNote(.C4);
-    const e4 = tuning.hzOfNote(.E4);
-    const g4 = tuning.hzOfNote(.G4);
-    const c5 = tuning.hzOfNote(.C5);
+    const c3 = tuning.hzOfNoteLetter(.C3);
+    const c4 = tuning.hzOfNoteLetter(.C4);
+    const e4 = tuning.hzOfNoteLetter(.E4);
+    const g4 = tuning.hzOfNoteLetter(.G4);
+    const c5 = tuning.hzOfNoteLetter(.C5);
 
     // M3: 5/4 = 1.25 exactly
     try testing.expectApproxEqAbs(c4 * 1.25, e4, 1e-6);
@@ -188,9 +188,9 @@ test "switch tonic in just intonation" {
     var tuning: Tuning = .init(440.0, .just);
 
     // C major
-    const c4 = tuning.hzOfNote(.C4);
-    const e4 = tuning.hzOfNote(.E4);
-    const g4_on_c = tuning.hzOfNote(.G4);
+    const c4 = tuning.hzOfNoteLetter(.C4);
+    const e4 = tuning.hzOfNoteLetter(.E4);
+    const g4_on_c = tuning.hzOfNoteLetter(.G4);
 
     // in C major chord, E4 is M3 (5/4) and G4 is P5 (3/2)
     try testing.expectApproxEqAbs(c4 * 1.25, e4, 1e-6);
@@ -199,9 +199,9 @@ test "switch tonic in just intonation" {
     tuning.setTonic(.G4);
 
     // G major
-    const g4_on_g = tuning.hzOfNote(.G4);
-    const b4 = tuning.hzOfNote(.B4);
-    const d5 = tuning.hzOfNote(.D5);
+    const g4_on_g = tuning.hzOfNoteLetter(.G4);
+    const b4 = tuning.hzOfNoteLetter(.B4);
+    const d5 = tuning.hzOfNoteLetter(.D5);
 
     // after changing tonic to G4, B4 is M3 (5/4) and D5 is P5 (3/2)
     try testing.expectApproxEqAbs(g4_on_g * 1.25, b4, 1e-6);
