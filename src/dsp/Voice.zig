@@ -13,23 +13,22 @@ frequency: f64 = dsp.pitch.a4hz_default,
 waveform: Oscillator.WaveForm,
 
 /// initialize voice, ensure consistency between oscillator and envelope
-pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, adsr_params: AdsrEnvelope.Params) Init {
-    const osc = Oscillator.init(sample_rate);
-    const env = switch (AdsrEnvelope.init(sample_rate, adsr_params)) {
-        .ok => |o| o,
-        .invalid_sustain_level => return .invalid_sustain_level,
-    };
+///
+/// * assume `adsr_params.sustain_level` within [0.0, 1.0]
+pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, adsr_params: AdsrEnvelope.Params) Voice {
+    assert(0.0 <= adsr_params.sustain_level and adsr_params.sustain_level <= 1.0);
+    const osc: Oscillator = .init(sample_rate);
+    const env: AdsrEnvelope = .init(sample_rate, adsr_params);
     return .{
-        .ok = .{
-            .oscillator = osc,
-            .envelope = env,
-            .waveform = waveform,
-        },
+        .oscillator = osc,
+        .envelope = env,
+        .waveform = waveform,
     };
 }
-pub const Init = union(enum) { ok: Voice, invalid_sustain_level };
 
 /// start playing a note of `frequency` Hz
+///
+/// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteOn(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
     assert(frequency < 0.5 * self.oscillator.sample_rate);
@@ -43,6 +42,8 @@ pub fn noteOff(self: *Voice) void {
 }
 
 /// move pitch to `frequency` Hz without envelope action
+///
+/// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteMove(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
     assert(frequency < 0.5 * self.oscillator.sample_rate);
@@ -52,6 +53,7 @@ pub fn noteMove(self: *Voice, frequency: f64) void {
 /// render the current voice into `buffer`
 ///
 /// * `buffer` is modified in place
+/// * assume `buffer` is non-empty
 pub fn render(self: *Voice, buffer: []f32) void {
     assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
@@ -70,12 +72,12 @@ pub fn active(self: Voice) bool {
 test "render note cycle" {
     const testing = std.testing;
 
-    var voice = Voice.init(1000.0, .sine, .{
+    var voice: Voice = .init(1000.0, .sine, .{
         .attack_sec = 0.01,
         .decay_sec = 0.01,
         .sustain_level = 0.5,
         .release_sec = 0.02,
-    }).ok;
+    });
     var buffer: [20]f32 = undefined;
 
     voice.noteOn(100.0);
@@ -98,12 +100,12 @@ test "render note cycle" {
 test "render in chunk, facade" {
     const testing = std.testing;
 
-    var voice1 = Voice.init(1000.0, .saw, .{
+    var voice1: Voice = .init(1000.0, .saw, .{
         .attack_sec = 0.02,
         .decay_sec = 0.02,
         .sustain_level = 0.6,
         .release_sec = 0.02,
-    }).ok;
+    });
     var voice2 = voice1;
 
     voice1.noteOn(100.0);

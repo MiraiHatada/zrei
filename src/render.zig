@@ -16,13 +16,10 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
         .sample_rate = sample_rate,
     };
     const samples_size = @as(usize, sample_rate) * sec;
-    const res = format.wav.createHeader(fmt, samples_size);
-    switch (res) {
-        .exceeded_4gb => return .exceeded_4gb,
-        .ok => |bytes| {
-            try sink.writeAll(&bytes);
-        },
-    }
+    const bytes = format.wav.createHeader(fmt, samples_size) catch |err| switch (err) {
+        error.Exceeded4Gb => return .exceeded_4gb,
+    };
+    try sink.writeAll(&bytes);
 
     // we use 2KB (+1KB) stack buffer here, which is way less than ordinary L1 data cache
     // on paper it allows 16+ polyphony without a cache miss but you know life is not that easy

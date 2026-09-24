@@ -29,15 +29,16 @@ pub const Header = struct {
         extensible = 0xFFFE,
     };
 
-    pub const ValidationError = error{
+    pub const Error = error{
         Exceeded4Gb,
     };
 
     /// initialize RIFF WAV header struct
     ///
-    /// * assumes 4GB limit including data
+    /// * `error.Exceeded4Gb` when whole data > 4GB
+    /// * `format.channels` must be at least 1
     /// * `format.bits_per_sample` must be divisible by 8
-    pub fn init(format: Format, frame_count: usize) ValidationError!Header {
+    pub fn init(format: Format, frame_count: usize) Error!Header {
         assert(format.channels > 0);
         assert(format.bits_per_sample % 8 == 0);
         const bytes_per_sample: u16 = format.bits_per_sample / 8;
@@ -97,19 +98,15 @@ inline fn quantize16i(sample: f32) i16 {
     return @intFromFloat(@round(clamped));
 }
 
-pub const CreateHeader = union(enum) { ok: [44]u8, exceeded_4gb };
-
 /// create RIFF WAV header in little endian as `[44]u8`
 ///
-/// * assumes `format.channels` > 0
+/// * assume `format.channels` > 0
 /// * `samples_size` must be divisible by `format.channels`
-pub fn createHeader(format: Format, samples_size: usize) CreateHeader {
+pub fn createHeader(format: Format, samples_size: usize) Header.Error![44]u8 {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);
-    const header = Header.init(format, samples_size / format.channels) catch |err| switch (err) {
-        error.Exceeded4Gb => return .exceeded_4gb,
-    };
-    return .{ .ok = header.toBytes() };
+    const header: Header = try .init(format, samples_size / format.channels);
+    return header.toBytes();
 }
 
 /// encode `samples` into i16 (quantized) and copy it to `out`
@@ -131,8 +128,7 @@ test "writePcm16: write 16bit mono wav" {
     const testing = std.testing;
     var buffer: [44 + 6]u8 = undefined;
 
-    const whres = createHeader(.{}, 3);
-    buffer[0..44].* = whres.ok;
+    buffer[0..44].* = try createHeader(.{}, 3);
 
     _ = encodePcm16(buffer[44..50], &.{ 0.0, 1.0, -1.0 });
 
