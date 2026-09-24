@@ -158,7 +158,7 @@ inline fn to32(value: f64) f32 {
 test "apply in chunk" {
     const testing = std.testing;
 
-    var env_full = AdsrEnvelope.init(100.0, .{
+    var env_full: AdsrEnvelope = .init(100.0, .{
         .attack_sec = 0.05,
         .decay_sec = 0.05,
         .sustain_level = 0.5,
@@ -198,7 +198,7 @@ test "apply in chunk" {
 test "release from incomplete attack" {
     const testing = std.testing;
 
-    var env = AdsrEnvelope.init(100.0, .{
+    var env: AdsrEnvelope = .init(100.0, .{
         .attack_sec = 0.10,
         .decay_sec = 0.05,
         .sustain_level = 0.5,
@@ -222,7 +222,7 @@ test "release from incomplete attack" {
 test "all zero spec" {
     const testing = std.testing;
 
-    var env = AdsrEnvelope.init(100.0, .{
+    var env: AdsrEnvelope = .init(100.0, .{
         .attack_sec = 0.0,
         .decay_sec = 0.0,
         .sustain_level = 0.6,
