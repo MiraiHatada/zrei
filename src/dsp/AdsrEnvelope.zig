@@ -30,25 +30,20 @@ pub const Params = struct {
 
 /// initialize adsr envelope
 ///
-/// * `sample_rate` - sample rate in Hz
-/// * `params` - envelope parameters
-/// * err `invalid_sustain_level` :  when `params.sustain_level` not in [0.0, 1.0]
-pub fn init(sample_rate: f64, params: Params) union(enum) { ok: AdsrEnvelope, invalid_sustain_level } {
-    if (params.sustain_level < 0.0 or params.sustain_level > 1.0) {
-        return .invalid_sustain_level;
-    }
+/// * assume `params.sustain_level` within [0.0, 1.0]
+pub fn init(sample_rate: f64, params: Params) AdsrEnvelope {
+    assert(0.0 <= params.sustain_level and params.sustain_level <= 1.0);
     return .{
-        .ok = .{
-            .sample_rate = sample_rate,
-            .params = params,
-        },
+        .sample_rate = sample_rate,
+        .params = params,
     };
 }
 
 /// apply envelope to sample buffer, `buffer` is modified in place
 ///
-/// * assumes `buffer` is non-empty
+/// * assume `buffer` is non-empty
 pub fn apply(self: *AdsrEnvelope, buffer: []f32) void {
+    assert(buffer.len > 0);
     var offset: usize = 0;
     while (offset < buffer.len) {
         const consumed = self.consume(buffer[offset..]);
@@ -168,7 +163,7 @@ test "apply in chunk" {
         .decay_sec = 0.05,
         .sustain_level = 0.5,
         .release_sec = 0.05,
-    }).ok;
+    });
     var env_chunk = env_full;
 
     var buffer_full: [25]f32 = @splat(1.0);
@@ -208,7 +203,7 @@ test "release from incomplete attack" {
         .decay_sec = 0.05,
         .sustain_level = 0.5,
         .release_sec = 0.05,
-    }).ok;
+    });
 
     var buffer: [10]f32 = @splat(1.0);
     env.trigger();
@@ -232,7 +227,7 @@ test "all zero spec" {
         .decay_sec = 0.0,
         .sustain_level = 0.6,
         .release_sec = 0.0,
-    }).ok;
+    });
 
     var buffer: [4]f32 = @splat(1.0);
     env.trigger();
