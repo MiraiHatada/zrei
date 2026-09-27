@@ -9,7 +9,13 @@ params: Params,
 
 state: State = .idle,
 current_level: f64 = 0.0,
-release_step: f64 = 0.0,
+
+// curve parameters
+factor: f64 = 0.0,
+bias: f64 = 0.0,
+
+/// phase change on `samples_left` == 0
+samples_left: usize = 0,
 
 /// adsr envelope state
 pub const State = enum {
@@ -53,8 +59,50 @@ pub fn apply(self: *AdsrEnvelope, buffer: []f32) void {
 
 /// key press; start attack phase
 pub fn trigger(self: *AdsrEnvelope) void {
+    if (self.current_level >= 1.0) {
+        self.current_level = 1.0;
+        self.decay();
+        return;
+    }
+
+    const total_samples = self.secs2samples(self.params.attack_sec);
+    if (total_samples == 0) {
+        // immediate max attack: at least 1 sample at level 1.0
+        self.state = .attack;
+        self.current_level = 1.0;
+        self.samples_left = 1; // 1 sample
+        self.factor = 1.0;
+        self.bias = 0.0;
+        return;
+    }
+
     self.state = .attack;
-    self.release_step = 0.0;
+    self.samples_left = total_samples;
+
+    // target level is 1.3 for rapid voltage rise in attack phase
+    const target = 1.3;
+    self.calculateCurve(self.current_level, 1.0, target, total_samples);
+}
+
+/// start decay phase
+fn decay(self: *AdsrEnvelope) void {
+    const total_samples = self.secs2samples(self.params.decay_sec);
+    if (total_samples == 0 or self.current_level <= self.params.sustain_level) {
+        self.current_level = self.params.sustain_level;
+        self.state = .sustain;
+        return;
+    }
+
+    self.state = .decay;
+    self.samples_left = total_samples;
+
+    // target level is beyond actual target by `-Δlevel / 100`
+    // because the curve is exponential
+    //
+    // note: (end - target) / (start - target) here is mathematically constant (1/101)
+    const span = self.current_level - self.params.sustain_level;
+    const target = self.params.sustain_level - (0.01 * span);
+    self.calculateCurve(self.current_level, self.params.sustain_level, target, total_samples);
 }
 
 /// key release; start release phase if not idle,
@@ -62,98 +110,95 @@ pub fn trigger(self: *AdsrEnvelope) void {
 pub fn release(self: *AdsrEnvelope) void {
     if (self.state == .idle or self.state == .release) return;
 
-    if (self.params.release_sec <= 0.0 or self.current_level <= 0.0) {
+    const total_samples = self.secs2samples(self.params.release_sec);
+    if (total_samples == 0 or self.current_level <= 0.0) {
         self.current_level = 0.0;
         self.state = .idle;
-    } else {
-        // pre calculate release_step to reach 0.0 in release_sec
-        self.release_step = self.current_level / (self.params.release_sec * self.sample_rate);
-        self.state = .release;
+        return;
     }
+
+    self.state = .release;
+    self.samples_left = total_samples;
+
+    // target level is beyond actual target by `-Δlevel / 100`
+    const target = -0.01 * self.current_level;
+    self.calculateCurve(self.current_level, 0.0, target, total_samples);
+}
+
+/// update infinite impulse response
+///
+/// * assume `samples` is larger than zero
+fn calculateCurve(self: *AdsrEnvelope, start: f64, end: f64, target: f64, samples: usize) void {
+    assert(samples > 0);
+    const ratio = (end - target) / (start - target);
+    const factor = std.math.pow(f64, ratio, 1.0 / @as(f64, @floatFromInt(samples)));
+    self.factor = factor;
+    self.bias = (1.0 - factor) * target;
+}
+
+inline fn nextLevelWithCurve(self: AdsrEnvelope) f64 {
+    return (self.current_level * self.factor) + self.bias;
+}
+
+fn secs2samples(self: AdsrEnvelope, seconds: f64) usize {
+    if (seconds <= 0.0) return 0;
+    return @intFromFloat(@round(seconds * self.sample_rate));
 }
 
 fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
     assert(buffer.len > 0);
-    return out: switch (self.state) {
+    switch (self.state) {
         .idle => {
             @memset(buffer, 0.0);
-            break :out buffer.len;
+            return buffer.len;
         },
         .attack => {
-            if (self.params.attack_sec <= 0.0) {
+            const count = @min(buffer.len, self.samples_left);
+            for (buffer[0..count]) |*sample| {
+                self.current_level = self.nextLevelWithCurve();
+                sample.* *= @floatCast(@min(self.current_level, 1.0));
+            }
+            self.samples_left -= count;
+            if (self.samples_left == 0) {
                 self.current_level = 1.0;
-                // this setting demands immediate max attack, need to consume at least 1 sample
-                // buffer[0] *= 1.0; <- max attack is in fact a no-op
-                self.state = .decay;
-                break :out 1; // consumed 1
+                self.decay();
             }
-            // in order to reach 1.0 in attack_sec
-            const attack_step = 1.0 / (self.params.attack_sec * self.sample_rate);
-            for (buffer, 1..) |*sample, i| {
-                self.current_level += attack_step;
-                sample.* *= @min(to32(self.current_level), 1.0);
-
-                const tolerance = attack_step * 0.5;
-                if (self.current_level >= 1.0 - tolerance) {
-                    self.current_level = 1.0;
-                    self.state = .decay;
-                    break :out i; // consumed samples
-                }
-            }
-            break :out buffer.len;
+            return count;
         },
         .decay => {
-            if (self.params.decay_sec <= 0.0) {
+            const count = @min(buffer.len, self.samples_left);
+            for (buffer[0..count]) |*sample| {
+                self.current_level = self.nextLevelWithCurve();
+                sample.* *= @floatCast(@max(self.current_level, self.params.sustain_level));
+            }
+            self.samples_left -= count;
+            if (self.samples_left == 0) {
                 self.current_level = self.params.sustain_level;
                 self.state = .sustain;
-                continue :out .sustain;
             }
-            // in order to reach sustain_level in decay_sec
-            const decay_step = (1.0 - self.params.sustain_level) / (self.params.decay_sec * self.sample_rate);
-            const tolerance = decay_step * 0.5;
-            for (buffer, 1..) |*sample, i| {
-                self.current_level -= decay_step;
-                sample.* *= @max(to32(self.current_level), to32(self.params.sustain_level));
-
-                if (self.current_level <= self.params.sustain_level + tolerance) {
-                    self.current_level = self.params.sustain_level;
-                    self.state = .sustain;
-                    break :out i; // consumed samples
-                }
-            }
-            break :out buffer.len;
+            return count;
         },
         .sustain => {
+            const sustain_level: f32 = @floatCast(self.params.sustain_level);
             for (buffer) |*sample| {
-                sample.* *= to32(self.params.sustain_level);
+                sample.* *= sustain_level;
             }
-            break :out buffer.len;
+            return buffer.len;
         },
         .release => {
-            if (self.params.release_sec <= 0.0) {
+            const count = @min(buffer.len, self.samples_left);
+            for (buffer[0..count]) |*sample| {
+                self.current_level = self.nextLevelWithCurve();
+                sample.* *= @floatCast(@max(self.current_level, 0.0));
+            }
+            self.samples_left -= count;
+            if (self.samples_left == 0) {
                 self.current_level = 0.0;
                 self.state = .idle;
-                continue :out .idle;
             }
-            assert(self.release_step > 0.0);
-            const tolerance = self.release_step * 0.5;
-            for (buffer, 1..) |*sample, i| {
-                self.current_level -= self.release_step;
-                sample.* *= @max(to32(self.current_level), 0.0);
-
-                if (self.current_level <= tolerance) {
-                    self.current_level = 0.0;
-                    self.state = .idle;
-                    break :out i; // consumed samples
-                }
-            }
-            break :out buffer.len;
+            return count;
         },
-    };
-}
-
-inline fn to32(value: f64) f32 {
-    return @floatCast(value);
+    }
 }
 
 test "apply in chunk" {
@@ -188,7 +233,6 @@ test "apply in chunk" {
     env_chunk.apply(buffer_chunk[16..20]);
     env_chunk.apply(buffer_chunk[20..25]);
 
-    // are the same
     for (0..25) |i| {
         try testing.expectApproxEqAbs(buffer_full[i], buffer_chunk[i], 1e-6);
     }
@@ -210,12 +254,11 @@ test "release from incomplete attack" {
     env.trigger();
     env.apply(buffer[0..4]);
 
-    try testing.expectApproxEqAbs(0.4, env.current_level, 1e-6);
+    try testing.expect(0.0 < env.current_level and env.current_level < 1.0);
 
     env.release();
     env.apply(buffer[4..10]);
 
-    try testing.expectApproxEqAbs(0.32, buffer[4], 1e-6);
     try testing.expectEqual(0.0, buffer[9]);
     try testing.expectEqual(.idle, env.state);
 }
