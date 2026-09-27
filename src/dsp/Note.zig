@@ -17,11 +17,11 @@ gate: f64 = 0.8,
 ///
 /// * assume `duration` is larger than zero
 /// * assume 0.0 < `gate` ≤ 1.0
-pub fn init(letter: ?Letter, duration: f64, gate: f64) Note {
+pub fn init(pitch: ?Letter, duration: f64, gate: f64) Note {
     assert(duration > 0.0);
     assert(0.0 < gate and gate <= 1.0);
     return .{
-        .pitch = letter,
+        .pitch = pitch,
         .duration = duration,
         .gate = gate,
     };

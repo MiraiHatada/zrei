@@ -13,15 +13,14 @@ const assert = std.debug.assert;
 pub const RenderWav = enum {
     ok,
     exceeded_4gb,
-    samplerate_below_30k,
+    samplerate_too_low,
 };
 
-/// fixme: more specific arguments about sound
 pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, sec: u16) Io.Writer.Error!RenderWav {
     if (sample_rate < 30000) {
         // G9 approx 12,543 Hz in A4 440Hz, it's nyquist for sample rate of the double of it.
         // drawing a line with room, though i am not confident about this value
-        return .samplerate_below_30k;
+        return .samplerate_too_low;
     }
     const fmt: format.wav.Format = .{
         .bits_per_sample = 16,

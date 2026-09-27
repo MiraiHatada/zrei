@@ -5,13 +5,28 @@ const Allocator = std.mem.Allocator;
 const StringHashMap = std.StringHashMapUnmanaged;
 const ArenaAllocator = std.heap.ArenaAllocator;
 const WaveForm = zrei.dsp.Oscillator.WaveForm;
-const log = std.log.scoped(.main);
 
 pub fn main(init: std.process.Init) !u8 {
     const io = init.io;
     const args = try init.minimal.args.toSlice(init.arena.allocator());
 
-    if (args.len < 2 or std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
+    if (args.len < 2) {
+        help(io, Io.File.stdout()) catch {};
+        return 0;
+    }
+
+    if (std.mem.eql(u8, args[1], "help")) {
+        if (args.len >= 3) {
+            if (Command.parse(args[2])) |cmd| {
+                cmd.help(io, Io.File.stdout()) catch {};
+                return 0;
+            }
+        }
+        help(io, Io.File.stdout()) catch {};
+        return 0;
+    }
+
+    if (std.mem.eql(u8, args[1], "-h") or std.mem.eql(u8, args[1], "--help")) {
         help(io, Io.File.stdout()) catch {};
         return 0;
     }
@@ -21,9 +36,17 @@ pub fn main(init: std.process.Init) !u8 {
         return 1;
     };
 
+    if (containsAny(args[2..], &.{ "--help", "-h" })) {
+        cmd.help(io, Io.File.stdout()) catch {};
+        return 0;
+    }
+
     switch (cmd) {
         .render => {
-            return try runRender(init.gpa, io, args[2..]);
+            return runRender(init.gpa, io, args[2..]) catch |err| switch (err) {
+                error.Abort => return 1,
+                else => |e| return e,
+            };
         },
     }
 }
@@ -34,6 +57,12 @@ const Command = enum {
     pub fn parse(raw: []const u8) ?Command {
         return std.meta.stringToEnum(Command, raw);
     }
+
+    pub fn help(self: Command, io: Io, file: Io.File) !void {
+        switch (self) {
+            .render => try helpRender(io, file),
+        }
+    }
 };
 
 const Parser = struct {
@@ -41,7 +70,7 @@ const Parser = struct {
     argument: ?[]const u8,
     arena: ArenaAllocator,
 
-    pub fn init(arena_child: Allocator) !Parser {
+    pub fn init(arena_child: Allocator) Parser {
         const arena: ArenaAllocator = .init(arena_child);
         return .{
             .options = .empty,
@@ -89,7 +118,7 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
         helpRender(io, Io.File.stdout()) catch {};
         return 0;
     }
-    var parser: Parser = try .init(allocator);
+    var parser: Parser = .init(allocator);
     defer parser.deinit();
     try parser.parse(args);
 
@@ -119,6 +148,7 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
 
     const filepath = out_option orelse "out.wav";
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});
+    errdefer Io.Dir.deleteFile(.cwd(), io, filepath) catch {};
     defer file.close(io);
     var file_buffer: [1024]u8 = undefined;
     var writer = file.writerStreaming(io, &file_buffer);
@@ -128,8 +158,8 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {
-        log.err("failed to render waveform: {s}", .{@tagName(rc)});
-        return 1;
+        werror(io, "failed to render waveform: {s}\n", .{@tagName(rc)}) catch {};
+        return error.Abort;
     }
     try writer.flush();
 

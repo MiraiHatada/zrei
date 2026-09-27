@@ -77,7 +77,7 @@ fn load(self: *Sequencer) void {
 
     const note_samples: usize = next_sample - self.note_start_sample;
     const note_samples_float: f64 = @floatFromInt(note_samples);
-    const gate_samples: usize = @intFromFloat(@round(note_samples_float * note.gate));
+    const gate_samples: usize = @min(@as(usize, @round(note_samples_float * note.gate)), note_samples);
 
     // update note timing and beat cursor
     self.note_off_sample = self.note_start_sample + gate_samples;
