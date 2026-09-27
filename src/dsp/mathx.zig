@@ -28,7 +28,7 @@ pub fn sinV(x: VecF32) VecF32 {
     const p = p_shifted - @floor(p_shifted);
     const u = four * @abs(p - half) - one;
 
-    // hornor's method application only to odd powers
+    // horner's method application only to odd powers
     // even powers are always zeros .. i suppose
     const c1: VecF32 = @splat(1.5707963);
     const c3: VecF32 = @splat(-0.6459641);

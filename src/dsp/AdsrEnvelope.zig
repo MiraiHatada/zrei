@@ -98,6 +98,8 @@ fn decay(self: *AdsrEnvelope) void {
 
     // target level is beyond actual target by `-Δlevel / 100`
     // because the curve is exponental
+    //
+    // note: (end - target) / (start - target) here is mathematically constant (1/101)
     const span = self.current_level - self.params.sustain_level;
     const target = self.params.sustain_level - (0.01 * span);
     self.calculateCurve(self.current_level, self.params.sustain_level, target, total_samples);
@@ -124,7 +126,10 @@ pub fn release(self: *AdsrEnvelope) void {
 }
 
 /// update infinite impulse response
+///
+/// * assume `samples` is larger than zero
 fn calculateCurve(self: *AdsrEnvelope, start: f64, end: f64, target: f64, samples: usize) void {
+    assert(samples > 0);
     const ratio = (end - target) / (start - target);
     const factor = std.math.pow(f64, ratio, 1.0 / @as(f64, @floatFromInt(samples)));
     self.factor = factor;
