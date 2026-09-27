@@ -57,17 +57,18 @@ pub fn trigger(self: *AdsrEnvelope) void {
     self.release_step = 0.0;
 }
 
-/// key release; start release phase if not idle
+/// key release; start release phase if not idle,
+/// idempotent.
 pub fn release(self: *AdsrEnvelope) void {
-    if (self.state != .idle) {
-        if (self.params.release_sec <= 0.0 or self.current_level <= 0.0) {
-            self.current_level = 0.0;
-            self.state = .idle;
-        } else {
-            // pre calculate release_step to reach 0.0 in release_sec
-            self.release_step = self.current_level / (self.params.release_sec * self.sample_rate);
-            self.state = .release;
-        }
+    if (self.state == .idle or self.state == .release) return;
+
+    if (self.params.release_sec <= 0.0 or self.current_level <= 0.0) {
+        self.current_level = 0.0;
+        self.state = .idle;
+    } else {
+        // pre calculate release_step to reach 0.0 in release_sec
+        self.release_step = self.current_level / (self.params.release_sec * self.sample_rate);
+        self.state = .release;
     }
 }
 

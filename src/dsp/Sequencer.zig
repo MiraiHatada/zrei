@@ -91,7 +91,6 @@ fn load(self: *Sequencer) void {
         self.state = .pressing;
     } else {
         // rest
-        self.voice.noteOff();
         self.state = .release;
     }
 }
