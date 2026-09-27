@@ -1,6 +1,7 @@
 //! simple oscillator
 const Oscillator = @This();
 
+const mathx = @import("mathx.zig");
 const std = @import("std");
 const assert = std.debug.assert;
 
@@ -120,9 +121,8 @@ fn sampleSine(phase: f32, dt: f32) f32 {
 
 fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
     _ = dt; // sine wave has C^∞ continuity
-    const two: VecF32 = @splat(2.0);
-    const pi: VecF32 = @splat(std.math.pi);
-    return @sin(phase * two * pi);
+    const two_pi: VecF32 = @splat(2.0 * std.math.pi);
+    return mathx.sinV(phase * two_pi);
 }
 
 fn sampleTriangle(phase: f32, dt: f32) f32 {
