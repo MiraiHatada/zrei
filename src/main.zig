@@ -4,34 +4,26 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const StringHashMap = std.StringHashMapUnmanaged;
 const ArenaAllocator = std.heap.ArenaAllocator;
+const WaveForm = zrei.dsp.Oscillator.WaveForm;
 const log = std.log.scoped(.main);
 
 pub fn main(init: std.process.Init) !u8 {
     const io = init.io;
-    const arena = init.arena.allocator();
-    const args = try init.minimal.args.toSlice(arena);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     if (args.len < 2 or std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
         help(io, Io.File.stdout()) catch {};
         return 0;
     }
 
-    var stderr_buffer: [1024]u8 = undefined;
-    const stderr = try io.lockStderr(&stderr_buffer, null);
-    defer io.unlockStderr();
-    const terminal = stderr.terminal();
-
     const cmd = Command.parse(args[1]) orelse {
-        terminal.setColor(.red) catch {};
-        terminal.writer.print("unknown command: {s}\n", .{args[1]}) catch {};
-        terminal.setColor(.reset) catch {};
-        terminal.writer.flush() catch {};
+        werror(io, "unknown command: {s}\n", .{args[1]}) catch {};
         return 1;
     };
 
     switch (cmd) {
         .render => {
-            return try runRender(init.gpa, init.io, args[2..]);
+            return try runRender(init.gpa, io, args[2..]);
         },
     }
 }
@@ -68,21 +60,11 @@ const Parser = struct {
         var i: usize = 0;
         while (i < args.len) : (i += 1) {
             const arg = args[i];
-            if (std.mem.startsWith(u8, arg, "--")) {
-                const raw = arg[2..];
+            const dash_dash = std.mem.startsWith(u8, arg, "--");
+            const dash = !dash_dash and std.mem.startsWith(u8, arg, "-") and arg.len > 1;
+            if (dash_dash or dash) {
+                const raw = if (dash_dash) arg[2..] else arg[1..];
                 if (raw.len == 0) continue;
-                if (std.mem.indexOfScalar(u8, raw, '=')) |equal_index| {
-                    const key = raw[0..equal_index];
-                    const val = raw[equal_index + 1 ..];
-                    try self.options.put(allocator, key, val);
-                } else if (i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "-")) {
-                    i += 1;
-                    try self.options.put(allocator, raw, args[i]);
-                } else {
-                    try self.options.put(allocator, raw, "");
-                }
-            } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
-                const raw = arg[1..];
                 if (std.mem.indexOfScalar(u8, raw, '=')) |equal_index| {
                     const key = raw[0..equal_index];
                     const val = raw[equal_index + 1 ..];
@@ -111,30 +93,27 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
     defer parser.deinit();
     try parser.parse(args);
 
-    const out_option: ?[]const u8 = parser.options.get("f") orelse parser.options.get("file");
-    const sample_rate_expr: []const u8 = parser.options.get("r") orelse parser.options.get("rate") orelse "48000";
+    const out_option: ?[]const u8 =
+        parser.options.get("o") orelse
+        parser.options.get("out") orelse
+        parser.options.get("output");
+    const sample_rate_expr: []const u8 =
+        parser.options.get("r") orelse
+        parser.options.get("rate") orelse
+        "48000";
 
     const sample_rate: u32 = std.fmt.parseInt(u32, sample_rate_expr, 10) catch {
-        var stderr_buffer: [256]u8 = undefined;
-        const stderr = try io.lockStderr(&stderr_buffer, null);
-        defer io.unlockStderr();
-        const terminal = stderr.terminal();
-        terminal.setColor(.red) catch {};
-        terminal.writer.print("invalid sample rate: {s}\n", .{sample_rate_expr}) catch {};
-        terminal.setColor(.reset) catch {};
-        terminal.writer.flush() catch {};
+        werror(io, "invalid sample rate: {s}\n", .{sample_rate_expr}) catch {};
         return 1;
     };
 
     const waveform_expr: []const u8 = parser.argument orelse {
-        var stderr_buffer: [256]u8 = undefined;
-        const stderr = try io.lockStderr(&stderr_buffer, null);
-        defer io.unlockStderr();
-        const terminal = stderr.terminal();
-        terminal.setColor(.red) catch {};
-        terminal.writer.writeAll("specify waveform: [sine, saw, triangle, square]\n") catch {};
-        terminal.setColor(.reset) catch {};
-        terminal.writer.flush() catch {};
+        werror(io, "specify waveform: [sine, saw, triangle, square]\n", .{}) catch {};
+        return 1;
+    };
+
+    const waveform = std.meta.stringToEnum(WaveForm, waveform_expr) orelse {
+        werror(io, "unknown waveform: {s}\n", .{waveform_expr}) catch {};
         return 1;
     };
 
@@ -145,7 +124,7 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
     var writer = file.writerStreaming(io, &file_buffer);
 
     // process encode
-    const rc = zrei.render.wav(&writer.interface, sample_rate, waveform_expr, 5) catch |err| switch (err) {
+    const rc = zrei.render.wav(&writer.interface, sample_rate, waveform, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {
@@ -154,8 +133,8 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
     }
     try writer.flush();
 
-    var stderr_buf: [1024]u8 = undefined;
-    const stderr = try io.lockStderr(&stderr_buf, null);
+    var stderr_buffer: [1024]u8 = undefined;
+    const stderr = try io.lockStderr(&stderr_buffer, null);
     defer io.unlockStderr();
     const terminal = stderr.terminal();
 
@@ -195,9 +174,21 @@ fn helpRender(io: Io, file: Io.File) !void {
         \\
         \\options:
         \\  -r, --rate    sampling rate (default to 48000)
+        \\  -o, --output  output file path (default to out.wav)
         \\
     ;
     try file.writeStreamingAll(io, usage);
+}
+
+fn werror(io: Io, comptime fmt: []const u8, args: anytype) !void {
+    var stderr_buffer: [256]u8 = undefined;
+    const stderr = try io.lockStderr(&stderr_buffer, null);
+    defer io.unlockStderr();
+    const terminal = stderr.terminal();
+    terminal.setColor(.red) catch {};
+    terminal.writer.print(fmt, args) catch {};
+    terminal.setColor(.reset) catch {};
+    terminal.writer.flush() catch {};
 }
 
 fn containsAny(list: []const []const u8, comptime needles: []const []const u8) bool {
