@@ -121,8 +121,11 @@ fn sampleSine(phase: f32, dt: f32) f32 {
 
 fn sampleSineV(phase: VecF32, dt: VecF32) VecF32 {
     _ = dt; // sine wave has C^∞ continuity
-    const two_pi: VecF32 = @splat(2.0 * std.math.pi);
-    return mathx.sinV(phase * two_pi);
+    // const two_pi: VecF32 = @splat(2.0 * std.math.pi);
+    // return mathx.sinV(phase * two_pi);
+    //
+    // well, this is kinda weird but at least optimized
+    return mathx.@"sinV[0,1)Normalized"(phase);
 }
 
 fn sampleTriangle(phase: f32, dt: f32) f32 {
