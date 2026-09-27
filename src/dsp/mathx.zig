@@ -9,18 +9,8 @@ const assert = std.debug.assert;
 
 pub const VecF32 = @Vector(4, f32);
 
-/// sine for a 4-lane vector,
+/// sine for a 4-lane vector with normalized phase in [0, 1) where 1 turn = 2π
 /// uses 9th-degree minimax polynomial on quarter-symmetric triangle wave mapping.
-pub fn sinV(x: VecF32) VecF32 {
-    const inv_two_pi: VecF32 = @splat(1.0 / (2.0 * std.math.pi));
-
-    // [0, 1) normalize
-    const t = x * inv_two_pi;
-    const normalized = t - @floor(t);
-    return @"sinV[0,1)Normalized"(normalized);
-}
-
-/// optimization
 pub fn @"sinV[0,1)Normalized"(normalized: VecF32) VecF32 {
     const half: VecF32 = @splat(0.5);
     const one: VecF32 = @splat(1.0);
@@ -54,24 +44,33 @@ fn tof32(x: usize) f32 {
     return @floatFromInt(x);
 }
 
-test "sinV substitutes @sin" {
+test "sine common points" {
     const testing = std.testing;
+    const phase: VecF32 = .{ 0.0, 0.25, 0.5, 0.75 };
 
+    const res = @"sinV[0,1)Normalized"(phase);
+    try testing.expectEqual(0.0, res[0]); // sin 0
+    try testing.expectEqual(1.0, res[1]); // sin π/2
+    try testing.expectEqual(0.0, res[2]); // sin π
+    try testing.expectEqual(-1.0, res[3]); // sin 3π/2
+}
+
+test "vectored sine perfect spec" {
+    const testing = std.testing;
     const steps: usize = 2000;
-    const pi: f32 = std.math.pi;
+    const two_pi: f32 = 2.0 * std.math.pi;
     var i: usize = 0;
     while (i < steps) : (i += 4) {
-        const t0 = -pi + (2.0 * pi) * (tof32(i) / tof32(steps));
-        const t1 = -pi + (2.0 * pi) * (tof32(i + 1) / tof32(steps));
-        const t2 = -pi + (2.0 * pi) * (tof32(i + 2) / tof32(steps));
-        const t3 = -pi + (2.0 * pi) * (tof32(i + 3) / tof32(steps));
+        const p0 = tof32(i) / tof32(steps);
+        const p1 = tof32(i + 1) / tof32(steps);
+        const p2 = tof32(i + 2) / tof32(steps);
+        const p3 = tof32(i + 3) / tof32(steps);
+        const pv: VecF32 = .{ p0, p1, p2, p3 };
 
-        const xv: VecF32 = .{ t0, t1, t2, t3 };
-        const res = sinV(xv);
-
+        const res = @"sinV[0,1)Normalized"(pv);
         inline for (0..4) |subscript| {
-            const x = xv[subscript];
-            const expected = @sin(x);
+            const p = pv[subscript];
+            const expected = @sin(p * two_pi);
             const actual = res[subscript];
             try testing.expectApproxEqAbs(expected, actual, 1e-5);
         }

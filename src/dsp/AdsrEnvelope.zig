@@ -97,7 +97,7 @@ fn decay(self: *AdsrEnvelope) void {
     self.samples_left = total_samples;
 
     // target level is beyond actual target by `-Δlevel / 100`
-    // because the curve is exponental
+    // because the curve is exponential
     //
     // note: (end - target) / (start - target) here is mathematically constant (1/101)
     const span = self.current_level - self.params.sustain_level;
