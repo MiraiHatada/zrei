@@ -35,11 +35,9 @@ pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveFo
 
 /// increment phase without actual rendering
 ///
-/// * assumes `frequency` is lower than the nyquist frequency
+/// `frequency` here doesn't have the nyquist invariant, just in case a rest note is put first in a row
 pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
     const dt = frequency / self.sample_rate;
-    assert(dt < 0.5);
-
     const delta_phase = dt * @as(f64, @floatFromInt(buffer.len));
     self.phase += delta_phase;
     self.phase -= @floor(self.phase);
