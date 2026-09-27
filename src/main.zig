@@ -9,8 +9,12 @@ pub fn main(init: std.process.Init) !u8 {
     const arena = init.arena.allocator();
     const args = try init.minimal.args.toSlice(arena);
 
-    // empty argument falls back to help with exit code 0 for ci
-    if (args.len < 2 or std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
+    if (args.len < 2) {
+        try help(io, Io.File.stderr());
+        return 1;
+    }
+
+    if (std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
         try help(io, Io.File.stdout());
         return 0;
     }
@@ -44,16 +48,24 @@ const Command = enum {
 };
 
 fn runRender(io: Io, args: []const []const u8) !u8 {
-    _ = args;
+    const waveform_expr = if (args.len > 0) args[0] else {
+        var buffer: [256]u8 = undefined;
+        const ls = try io.lockStderr(&buffer, null);
+        const terminal = ls.terminal();
+        terminal.setColor(.red) catch {};
+        terminal.writer.writeAll("specify waveform: [sine, saw, triangle, square]\n") catch {};
+        terminal.writer.flush() catch {};
+        return 1;
+    };
     const out_option: ?[]const u8 = null; // fixme later
     const filepath = out_option orelse "out.wav";
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});
     defer file.close(io);
-    var file_buf: [1024]u8 = undefined;
-    var writer = file.writerStreaming(io, &file_buf);
+    var file_buffer: [1024]u8 = undefined;
+    var writer = file.writerStreaming(io, &file_buffer);
 
     // process encode
-    const rc = zrei.render.wav(&writer.interface, 5) catch |err| switch (err) {
+    const rc = zrei.render.wav(&writer.interface, waveform_expr, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {

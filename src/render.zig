@@ -1,6 +1,7 @@
 //! waveform rendering pipeline
 const format = @import("format.zig");
 const dsp = @import("dsp.zig");
+const Oscillator = dsp.Oscillator;
 const Sequencer = dsp.Sequencer;
 const Voice = dsp.Voice;
 const Tuning = dsp.pitch.Tuning;
@@ -9,9 +10,15 @@ const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
-pub const RenderWav = enum { ok, exceeded_4gb };
 /// fixme: more specific arguments about sound
-pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
+pub fn wav(sink: *Io.Writer, waveform_expr: []const u8, sec: u16) Io.Writer.Error!enum {
+    ok,
+    exceeded_4gb,
+    unknown_waveform,
+} {
+    const waveform = std.meta.stringToEnum(Oscillator.WaveForm, waveform_expr) orelse {
+        return .unknown_waveform;
+    };
     const sample_rate: u32 = comptime 48000;
     const fmt: format.wav.Format = .{
         .bits_per_sample = 16,
@@ -30,7 +37,7 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
     const tuning: Tuning = .init(440.0, .equal);
-    const voice: Voice = .init(sample_rate, .square, .{
+    const voice: Voice = .init(sample_rate, waveform, .{
         .attack_sec = 0.05,
         .decay_sec = 0.1,
         .sustain_level = 0.5,
