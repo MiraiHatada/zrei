@@ -1,10 +1,10 @@
 const zrei = @import("zrei");
+const WaveForm = zrei.dsp.Oscillator.WaveForm;
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const StringHashMap = std.StringHashMapUnmanaged;
 const ArenaAllocator = std.heap.ArenaAllocator;
-const WaveForm = zrei.dsp.Oscillator.WaveForm;
 
 pub fn main(init: std.process.Init) !u8 {
     const io = init.io;
@@ -68,24 +68,23 @@ const Command = enum {
 const Parser = struct {
     options: StringHashMap([]const u8),
     argument: ?[]const u8,
-    arena: ArenaAllocator,
+    allocator: Allocator,
 
-    pub fn init(arena_child: Allocator) Parser {
-        const arena: ArenaAllocator = .init(arena_child);
+    pub fn init(allocator: Allocator) Parser {
         return .{
             .options = .empty,
             .argument = null,
-            .arena = arena,
+            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Parser) void {
-        self.arena.deinit();
+        self.options.deinit(self.allocator);
         self.* = undefined;
     }
 
     pub fn parse(self: *Parser, args: []const []const u8) Allocator.Error!void {
-        const allocator = self.arena.allocator();
+        const allocator = self.allocator;
         var i: usize = 0;
         while (i < args.len) : (i += 1) {
             const arg = args[i];

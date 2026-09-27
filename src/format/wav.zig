@@ -124,7 +124,7 @@ pub fn encodePcm16(out: []u8, samples: []const f32) []const u8 {
     return out[0..bytes_total];
 }
 
-test "writePcm16: write 16bit mono wav" {
+test encodePcm16 {
     const testing = std.testing;
     var buffer: [44 + 6]u8 = undefined;
 
