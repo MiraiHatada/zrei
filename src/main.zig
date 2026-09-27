@@ -2,6 +2,8 @@ const zrei = @import("zrei");
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
+const StringHashMap = std.StringHashMapUnmanaged;
+const ArenaAllocator = std.heap.ArenaAllocator;
 const log = std.log.scoped(.main);
 
 pub fn main(init: std.process.Init) !u8 {
@@ -9,18 +11,13 @@ pub fn main(init: std.process.Init) !u8 {
     const arena = init.arena.allocator();
     const args = try init.minimal.args.toSlice(arena);
 
-    if (args.len < 2) {
-        try help(io, Io.File.stderr());
-        return 1;
-    }
-
-    if (std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
-        try help(io, Io.File.stdout());
+    if (args.len < 2 or std.mem.eql(u8, args[1], "help") or containsAny(args[1..], &.{ "--help", "-h" })) {
+        help(io, Io.File.stdout()) catch {};
         return 0;
     }
 
-    var stderr_buf: [1024]u8 = undefined;
-    const stderr = try io.lockStderr(&stderr_buf, null);
+    var stderr_buffer: [1024]u8 = undefined;
+    const stderr = try io.lockStderr(&stderr_buffer, null);
     defer io.unlockStderr();
     const terminal = stderr.terminal();
 
@@ -34,7 +31,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     switch (cmd) {
         .render => {
-            return try runRender(io, args[2..]);
+            return try runRender(init.gpa, init.io, args[2..]);
         },
     }
 }
@@ -47,17 +44,100 @@ const Command = enum {
     }
 };
 
-fn runRender(io: Io, args: []const []const u8) !u8 {
-    const waveform_expr = if (args.len > 0) args[0] else {
-        var buffer: [256]u8 = undefined;
-        const ls = try io.lockStderr(&buffer, null);
-        const terminal = ls.terminal();
+const Parser = struct {
+    options: StringHashMap([]const u8),
+    argument: ?[]const u8,
+    arena: ArenaAllocator,
+
+    pub fn init(arena_child: Allocator) !Parser {
+        const arena: ArenaAllocator = .init(arena_child);
+        return .{
+            .options = .empty,
+            .argument = null,
+            .arena = arena,
+        };
+    }
+
+    pub fn deinit(self: *Parser) void {
+        self.arena.deinit();
+        self.* = undefined;
+    }
+
+    pub fn parse(self: *Parser, args: []const []const u8) Allocator.Error!void {
+        const allocator = self.arena.allocator();
+        var i: usize = 0;
+        while (i < args.len) : (i += 1) {
+            const arg = args[i];
+            if (std.mem.startsWith(u8, arg, "--")) {
+                const raw = arg[2..];
+                if (raw.len == 0) continue;
+                if (std.mem.indexOfScalar(u8, raw, '=')) |equal_index| {
+                    const key = raw[0..equal_index];
+                    const val = raw[equal_index + 1 ..];
+                    try self.options.put(allocator, key, val);
+                } else if (i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "-")) {
+                    i += 1;
+                    try self.options.put(allocator, raw, args[i]);
+                } else {
+                    try self.options.put(allocator, raw, "");
+                }
+            } else if (std.mem.startsWith(u8, arg, "-") and arg.len > 1) {
+                const raw = arg[1..];
+                if (std.mem.indexOfScalar(u8, raw, '=')) |equal_index| {
+                    const key = raw[0..equal_index];
+                    const val = raw[equal_index + 1 ..];
+                    try self.options.put(allocator, key, val);
+                } else if (i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "-")) {
+                    i += 1;
+                    try self.options.put(allocator, raw, args[i]);
+                } else {
+                    try self.options.put(allocator, raw, "");
+                }
+            } else {
+                if (self.argument == null) {
+                    self.argument = arg;
+                }
+            }
+        }
+    }
+};
+
+fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
+    if (args.len == 0) {
+        helpRender(io, Io.File.stdout()) catch {};
+        return 0;
+    }
+    var parser: Parser = try .init(allocator);
+    defer parser.deinit();
+    try parser.parse(args);
+
+    const out_option: ?[]const u8 = parser.options.get("f") orelse parser.options.get("file");
+    const sample_rate_expr: []const u8 = parser.options.get("r") orelse parser.options.get("rate") orelse "48000";
+
+    const sample_rate: u32 = std.fmt.parseInt(u32, sample_rate_expr, 10) catch {
+        var stderr_buffer: [256]u8 = undefined;
+        const stderr = try io.lockStderr(&stderr_buffer, null);
+        defer io.unlockStderr();
+        const terminal = stderr.terminal();
         terminal.setColor(.red) catch {};
-        terminal.writer.writeAll("specify waveform: [sine, saw, triangle, square]\n") catch {};
+        terminal.writer.print("invalid sample rate: {s}\n", .{sample_rate_expr}) catch {};
+        terminal.setColor(.reset) catch {};
         terminal.writer.flush() catch {};
         return 1;
     };
-    const out_option: ?[]const u8 = null; // fixme later
+
+    const waveform_expr: []const u8 = parser.argument orelse {
+        var stderr_buffer: [256]u8 = undefined;
+        const stderr = try io.lockStderr(&stderr_buffer, null);
+        defer io.unlockStderr();
+        const terminal = stderr.terminal();
+        terminal.setColor(.red) catch {};
+        terminal.writer.writeAll("specify waveform: [sine, saw, triangle, square]\n") catch {};
+        terminal.setColor(.reset) catch {};
+        terminal.writer.flush() catch {};
+        return 1;
+    };
+
     const filepath = out_option orelse "out.wav";
     const file = try Io.Dir.createFile(.cwd(), io, filepath, .{});
     defer file.close(io);
@@ -65,7 +145,7 @@ fn runRender(io: Io, args: []const []const u8) !u8 {
     var writer = file.writerStreaming(io, &file_buffer);
 
     // process encode
-    const rc = zrei.render.wav(&writer.interface, waveform_expr, 5) catch |err| switch (err) {
+    const rc = zrei.render.wav(&writer.interface, sample_rate, waveform_expr, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {
@@ -99,7 +179,22 @@ fn help(io: Io, file: Io.File) !void {
         \\  -h, --help   show this help message
         \\
         \\example:
-        \\  zrei render --freq 440 --wave sine -o out.wav
+        \\  zrei render triangle --rate 44100
+        \\
+    ;
+    try file.writeStreamingAll(io, usage);
+}
+
+fn helpRender(io: Io, file: Io.File) !void {
+    const usage =
+        \\usage:
+        \\  zrei render <waveform> [options]
+        \\
+        \\arguments:
+        \\  waveform      any of sine, saw, square, or triangle
+        \\
+        \\options:
+        \\  -r, --rate    sampling rate (default to 48000)
         \\
     ;
     try file.writeStreamingAll(io, usage);

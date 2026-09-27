@@ -11,15 +11,20 @@ const Io = std.Io;
 const assert = std.debug.assert;
 
 /// fixme: more specific arguments about sound
-pub fn wav(sink: *Io.Writer, waveform_expr: []const u8, sec: u16) Io.Writer.Error!enum {
+pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform_expr: []const u8, sec: u16) Io.Writer.Error!enum {
     ok,
     exceeded_4gb,
     unknown_waveform,
+    samplerate_below_30k,
 } {
+    if (sample_rate < 30000) {
+        // G9 approx 12,543 Hz in A4 440Hz, it's nyquist for sample rate of the double of it.
+        // drawing a line with room, though i am not confident about this value
+        return .samplerate_below_30k;
+    }
     const waveform = std.meta.stringToEnum(Oscillator.WaveForm, waveform_expr) orelse {
         return .unknown_waveform;
     };
-    const sample_rate: u32 = comptime 48000;
     const fmt: format.wav.Format = .{
         .bits_per_sample = 16,
         .channels = 1,
@@ -72,7 +77,7 @@ test wav {
     defer allocator.free(buffer);
     var sink = Io.Writer.fixed(buffer);
 
-    const res = try wav(&sink, 1);
+    const res = try wav(&sink, 48000, "saw", 1);
     try testing.expectEqual(.ok, res);
 
     try testing.expectEqualStrings("RIFF", buffer[0..4]);
