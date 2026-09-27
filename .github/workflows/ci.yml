@@ -40,7 +40,7 @@ jobs:
         run: zig build test --summary all
 
       - name: run main
-        run: zig build run --summary all -- render
+        run: zig build run --summary all -- render sine
 
   windows:
     name: windows
@@ -79,4 +79,4 @@ jobs:
 
       - name: run main
         shell: pwsh
-        run: zig build run --summary all -- render
+        run: zig build run --summary all -- render sine

@@ -58,6 +58,7 @@ pub fn render(self: *Voice, buffer: []f32) void {
     assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
         @memset(buffer, 0.0);
+        self.oscillator.renderSkip(buffer, self.frequency);
         return;
     }
     self.oscillator.render(buffer, self.frequency, self.waveform);

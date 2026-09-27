@@ -2,14 +2,26 @@
 const format = @import("format.zig");
 const dsp = @import("dsp.zig");
 const Oscillator = dsp.Oscillator;
+const Sequencer = dsp.Sequencer;
+const Voice = dsp.Voice;
+const Tuning = dsp.pitch.Tuning;
+const Note = dsp.Note;
 const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
-pub const RenderWav = enum { ok, exceeded_4gb };
-/// fixme: more specific arguments about sound
-pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
-    const sample_rate: u32 = comptime 48000;
+pub const RenderWav = enum {
+    ok,
+    exceeded_4gb,
+    samplerate_too_low,
+};
+
+pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, sec: u16) Io.Writer.Error!RenderWav {
+    if (sample_rate < 30000) {
+        // G9 approx 12,543 Hz in A4 440Hz, it's nyquist for sample rate of the double of it.
+        // drawing a line with room, though i am not confident about this value
+        return .samplerate_too_low;
+    }
     const fmt: format.wav.Format = .{
         .bits_per_sample = 16,
         .channels = 1,
@@ -26,11 +38,26 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     var buffer: [512]f32 = undefined;
     var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
-    var osc: Oscillator = .init(sample_rate);
+    const tuning: Tuning = .init(440.0, .equal);
+    const voice: Voice = .init(sample_rate, waveform, .{
+        .attack_sec = 0.05,
+        .decay_sec = 0.1,
+        .sustain_level = 0.5,
+        .release_sec = 0.1,
+    });
+    const notes: [12]Note = .{
+        .init(.C4, 1.0, 0.8),  .init(.D4, 0.5, 0.8),
+        .init(.E4, 0.5, 0.8),  .init(.F4, 0.5, 0.8),
+        .init(.G4, 0.5, 0.8),  .init(.A4, 0.5, 0.8),
+        .init(.B4, 0.5, 0.8),  .init(.C5, 0.5, 0.5),
+        .init(null, 0.5, 0.8), .init(.G4, 0.5, 0.5),
+        .init(null, 0.5, 0.8), .init(.C5, 1.0, 0.8),
+    };
+    var seq: Sequencer = .init(sample_rate, 120, tuning, voice, &notes);
     while (offset < samples_size) {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
-        osc.render(chunk, 440.0, .square);
+        seq.render(chunk);
         const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
         try sink.writeAll(data);
         offset += chunk_size;
@@ -47,7 +74,7 @@ test wav {
     defer allocator.free(buffer);
     var sink = Io.Writer.fixed(buffer);
 
-    const res = try wav(&sink, 1);
+    const res = try wav(&sink, 48000, .saw, 1);
     try testing.expectEqual(.ok, res);
 
     try testing.expectEqualStrings("RIFF", buffer[0..4]);

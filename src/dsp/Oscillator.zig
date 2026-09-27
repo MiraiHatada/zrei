@@ -33,6 +33,17 @@ pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveFo
     self.renderInner(buffer, frequency, waveform, .vector);
 }
 
+/// increment phase without actual rendering
+///
+/// `frequency` here doesn't have the nyquist invariant, just in case a rest note is put first in a row
+pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
+    const dt = frequency / self.sample_rate;
+    const delta_phase = dt * @as(f64, @floatFromInt(buffer.len));
+    self.phase += delta_phase;
+    self.phase -= @floor(self.phase);
+    if (self.phase >= 1.0 - 1e-12) self.phase = 0.0;
+}
+
 /// internally accept the scalar `mode` for examination
 fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, mode: Mode) void {
     // delta phi : how fast phase increases
@@ -330,5 +341,17 @@ test "render wave vector same as scalar" {
         for (0..515) |idx| {
             try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-5);
         }
+    }
+}
+
+test renderSkip {
+    const testing = std.testing;
+    var dustbin: [1000]f32 = undefined;
+    for (0..1000) |i| {
+        var osc1: Oscillator = .init(44100.0);
+        var osc2: Oscillator = .init(44100.0);
+        osc1.render(dustbin[0..i], 440.0, .sine);
+        osc2.renderSkip(dustbin[0..i], 440.0);
+        try testing.expectApproxEqAbs(osc1.phase, osc2.phase, 1e-10);
     }
 }
