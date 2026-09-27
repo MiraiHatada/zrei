@@ -1,7 +1,10 @@
 //! waveform rendering pipeline
 const format = @import("format.zig");
 const dsp = @import("dsp.zig");
-const Oscillator = dsp.Oscillator;
+const Sequencer = dsp.Sequencer;
+const Voice = dsp.Voice;
+const Tuning = dsp.pitch.Tuning;
+const Note = dsp.Note;
 const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
@@ -26,11 +29,26 @@ pub fn wav(sink: *Io.Writer, sec: u16) Io.Writer.Error!RenderWav {
     var buffer: [512]f32 = undefined;
     var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
-    var osc: Oscillator = .init(sample_rate);
+    const tuning: Tuning = .init(440.0, .equal);
+    const voice: Voice = .init(sample_rate, .square, .{
+        .attack_sec = 0.05,
+        .decay_sec = 0.1,
+        .sustain_level = 0.5,
+        .release_sec = 0.1,
+    });
+    const notes: [12]Note = .{
+        .init(.C4, 1.0, 0.8),  .init(.D4, 0.5, 0.8),
+        .init(.E4, 0.5, 0.8),  .init(.F4, 0.5, 0.8),
+        .init(.G4, 0.5, 0.8),  .init(.A4, 0.5, 0.8),
+        .init(.B4, 0.5, 0.8),  .init(.C5, 0.5, 0.5),
+        .init(null, 0.5, 0.8), .init(.G4, 0.5, 0.5),
+        .init(null, 0.5, 0.8), .init(.C5, 1.0, 0.8),
+    };
+    var seq: Sequencer = .init(sample_rate, 120, tuning, voice, &notes);
     while (offset < samples_size) {
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
-        osc.render(chunk, 440.0, .square);
+        seq.render(chunk);
         const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
         try sink.writeAll(data);
         offset += chunk_size;
