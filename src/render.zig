@@ -58,8 +58,8 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, se
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
         seq.render(chunk);
-        const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
-        try sink.writeAll(data);
+        const window = format.wav.encodePcm16(&buffer_i16_raw, chunk);
+        try sink.writeAll(window);
         offset += chunk_size;
     }
     assert(offset == samples_size);

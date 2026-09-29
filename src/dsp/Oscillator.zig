@@ -46,7 +46,7 @@ pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
 }
 
 /// internally accept the scalar `mode` for examination
-fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, mode: Mode) void {
+fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, comptime mode: Mode) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
     // frequency < nyquist_frequency
@@ -137,7 +137,7 @@ fn sampleTriangle(phase: f32, dt: f32) f32 {
     if (shifted >= 1.0) shifted -= 1.0; // mod 1.0
 
     // corrected = sample + (-delta_slope * pbm(top)) + (delta_slope * pbm(bottom))
-    // can be factorize to:
+    // can be factorized to:
     //   corrected = sample + delta_slope * (pbm(bottom) - pbm(top))
     sample += delta_slope * (polyblamp(shifted, dt) - polyblamp(phase, dt));
 
