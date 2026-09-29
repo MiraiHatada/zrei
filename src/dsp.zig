@@ -6,3 +6,4 @@ pub const AdsrEnvelope = @import("dsp/AdsrEnvelope.zig");
 pub const Voice = @import("dsp/Voice.zig");
 pub const Note = @import("dsp/Note.zig");
 pub const Sequencer = @import("dsp/Sequencer.zig");
+pub const WaveSource = @import("dsp/wave_source.zig").WaveSource;
