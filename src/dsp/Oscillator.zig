@@ -209,8 +209,8 @@ fn sampleSquareV(phase: VecF32, dt: VecF32) VecF32 {
 /// * use `SAMPLE(t) - polyblep(t)` as a corrected value
 /// * may also use `SAMPLE(t) + polyblep(t)` as an upside-down correction (i.e. jump)
 inline fn polyblep(phase: f32, dt: f32) f32 {
+    assert(0.0 <= phase);
     assert(phase <= 1.0); // our phase is [0.0, 1.0) ; well, but the definition is.
-    assert(phase >= 0.0);
     // phase within [0.0, dt)
     if (phase < dt) {
         // normalized step (the first step after fall down)
@@ -264,8 +264,8 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
 /// * `SAMPLE(t) + (k * polyblamp(t))` for mountain top correction
 /// * the same stands for valley bottom correction
 inline fn polyblamp(phase: f32, dt: f32) f32 {
+    assert(0.0 <= phase);
     assert(phase <= 1.0);
-    assert(phase >= 0.0);
 
     // the step right after mountaintop
     if (phase < dt) {

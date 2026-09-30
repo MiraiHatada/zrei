@@ -21,7 +21,8 @@ pub const Params = struct {
 ///
 /// * assume `params.envelope.sustain_level` within [0.0, 1.0]
 pub fn init(sample_rate: f64, params: Params) Voice {
-    assert(0.0 <= params.envelope.sustain_level and params.envelope.sustain_level <= 1.0);
+    assert(0.0 <= params.envelope.sustain_level);
+    assert(params.envelope.sustain_level <= 1.0);
     const src: WaveSource = .init(sample_rate, params.source);
     const env: AdsrEnvelope = .init(sample_rate, params.envelope);
     return .{
@@ -50,7 +51,7 @@ pub fn noteOff(self: *Voice) void {
 ///
 /// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteMove(self: *Voice, frequency: f64) void {
-    assert(frequency > 0.0);
+    assert(0.0 < frequency);
     assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
 }
