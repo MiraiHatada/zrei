@@ -1,5 +1,4 @@
 const zrei = @import("zrei");
-const WaveForm = zrei.dsp.Oscillator.WaveForm;
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
@@ -134,13 +133,13 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
         return 1;
     };
 
-    const waveform_expr: []const u8 = parser.argument orelse {
-        werror(io, "specify waveform: [sine, saw, triangle, square]\n", .{}) catch {};
+    const voicetype_expr: []const u8 = parser.argument orelse {
+        werror(io, "specify voicetype: [sine, saw, triangle, square, super_saw]\n", .{}) catch {};
         return 1;
     };
 
-    const waveform = std.meta.stringToEnum(WaveForm, waveform_expr) orelse {
-        werror(io, "unknown waveform: {s}\n", .{waveform_expr}) catch {};
+    const voicetype = std.meta.stringToEnum(zrei.render.VoiceType, voicetype_expr) orelse {
+        werror(io, "unknown voicetype: {s}\n", .{voicetype_expr}) catch {};
         return 1;
     };
 
@@ -152,7 +151,7 @@ fn runRender(allocator: Allocator, io: Io, args: []const []const u8) !u8 {
     var writer = file.writerStreaming(io, &file_buffer);
 
     // process encode
-    const rc = zrei.render.wav(&writer.interface, sample_rate, waveform, 5) catch |err| switch (err) {
+    const rc = zrei.render.wav(&writer.interface, sample_rate, voicetype, 5) catch |err| switch (err) {
         error.WriteFailed => return writer.err.?,
     };
     if (rc != .ok) {
@@ -179,7 +178,7 @@ fn help(io: Io, file: Io.File) !void {
         \\  zrei <command> [options]
         \\
         \\commands:
-        \\  render       render waveform to wav file
+        \\  render       render melody to wav file
         \\  help         show this help message
         \\
         \\options:
@@ -195,10 +194,10 @@ fn help(io: Io, file: Io.File) !void {
 fn helpRender(io: Io, file: Io.File) !void {
     const usage =
         \\usage:
-        \\  zrei render <waveform> [options]
+        \\  zrei render <voicetype> [options]
         \\
         \\arguments:
-        \\  waveform      any of sine, saw, square, or triangle
+        \\  voicetype     any of sine, saw, square, triangle, or super_saw
         \\
         \\options:
         \\  -r, --rate    sampling rate (default to 48000)

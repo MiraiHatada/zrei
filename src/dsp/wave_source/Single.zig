@@ -26,6 +26,10 @@ pub fn renderSkip(self: *Single, buffer: []const f32, frequency: f64) void {
     self.oscillator.renderSkip(buffer, frequency);
 }
 
+pub fn sampleRate(self: Single) f64 {
+    return self.oscillator.sample_rate;
+}
+
 test "render and renderSkip are identical in phase" {
     const testing = std.testing;
 

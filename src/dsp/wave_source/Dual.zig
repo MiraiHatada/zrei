@@ -77,6 +77,11 @@ pub fn renderSkip(self: *Dual, buffer: []const f32, frequency: f64) void {
     self.osc2.renderSkip(buffer, freq2);
 }
 
+pub fn sampleRate(self: Dual) f64 {
+    assert(self.osc1.sample_rate == self.osc2.sample_rate);
+    return self.osc1.sample_rate;
+}
+
 test "chunk invariance" {
     const testing = std.testing;
 

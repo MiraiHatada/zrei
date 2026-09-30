@@ -178,12 +178,16 @@ pub fn render(self: *Sequencer, buffer: []f32) void {
 test "render single note" {
     const testing = std.testing;
 
-    const voice: Voice = .init(1000.0, .sine, .{
-        .attack_sec = 0.01,
-        .decay_sec = 0.01,
-        .sustain_level = 0.5,
-        .release_sec = 0.02,
-    });
+    const params: Voice.Params = .{
+        .source = .{ .single = .{ .waveform = .sine } },
+        .envelope = .{
+            .attack_sec = 0.01,
+            .decay_sec = 0.01,
+            .sustain_level = 0.5,
+            .release_sec = 0.02,
+        },
+    };
+    const voice: Voice = .init(1000.0, params);
     const tuning: Tuning = .init(440.0, .equal);
 
     // 1000Hz, BPM 120 -> 1 beat = 500 samples (400 pressing, 100 release)
@@ -215,12 +219,16 @@ test "render single note" {
 test "render in chunk, super facade" {
     const testing = std.testing;
 
-    const voice: Voice = .init(1000.0, .saw, .{
-        .attack_sec = 0.02,
-        .decay_sec = 0.02,
-        .sustain_level = 0.6,
-        .release_sec = 0.02,
-    });
+    const params: Voice.Params = .{
+        .source = .{ .single = .{ .waveform = .saw } },
+        .envelope = .{
+            .attack_sec = 0.02,
+            .decay_sec = 0.02,
+            .sustain_level = 0.6,
+            .release_sec = 0.02,
+        },
+    };
+    const voice: Voice = .init(1000.0, params);
     const tuning: Tuning = .init(440.0, .equal);
     const notes: [3]Note = .{
         .{ .pitch = .C4, .duration = 0.5, .gate = 0.8 },
@@ -247,12 +255,16 @@ test "render in chunk, super facade" {
 test "real life spec" {
     const testing = std.testing;
 
-    const voice: Voice = .init(48000.0, .sine, .{
-        .attack_sec = 0.001,
-        .decay_sec = 0.001,
-        .sustain_level = 0.5,
-        .release_sec = 0.001,
-    });
+    const params: Voice.Params = .{
+        .source = .{ .single = .{ .waveform = .sine } },
+        .envelope = .{
+            .attack_sec = 0.001,
+            .decay_sec = 0.001,
+            .sustain_level = 0.5,
+            .release_sec = 0.001,
+        },
+    };
+    const voice: Voice = .init(48000.0, params);
     const tuning: Tuning = .init(440.0, .equal);
 
     const note_single: Note = .{ .pitch = .C4, .duration = 0.25, .gate = 0.8 };

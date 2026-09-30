@@ -9,6 +9,20 @@ pub const WaveSource = union(enum) {
     dual: Dual,
     super_saw: SuperSaw,
 
+    pub const Params = union(enum) {
+        single: struct { waveform: Oscillator.WaveForm },
+        dual: struct { waveform: Oscillator.WaveForm, detune_cents: f64 },
+        super_saw: struct { detune_cents: f64 },
+    };
+
+    pub fn init(sample_rate: f64, params: Params) WaveSource {
+        return switch (params) {
+            .single => |s| .{ .single = .init(sample_rate, s.waveform) },
+            .dual => |d| .{ .dual = .init(sample_rate, d.waveform, d.detune_cents) },
+            .super_saw => |ss| .{ .super_saw = .init(sample_rate, ss.detune_cents) },
+        };
+    }
+
     pub fn render(self: *WaveSource, buffer: []f32, frequency: f64) void {
         switch (self.*) {
             inline else => |*source| source.render(buffer, frequency),
@@ -21,6 +35,12 @@ pub const WaveSource = union(enum) {
         }
     }
 
+    pub fn sampleRate(self: WaveSource) f64 {
+        return switch (self) {
+            inline else => |*source| source.sampleRate(),
+        };
+    }
+
     pub const Single = @import("wave_source/Single.zig");
     pub const Dual = @import("wave_source/Dual.zig");
     pub const SuperSaw = @import("wave_source/SuperSaw.zig");
@@ -29,9 +49,9 @@ pub const WaveSource = union(enum) {
 test "interface invariant" {
     const testing = std.testing;
 
-    const single: WaveSource = .{ .single = .init(44100.0, .triangle) };
-    const dual: WaveSource = .{ .dual = .init(44100.0, .square, 10.0) };
-    const supersaw: WaveSource = .{ .super_saw = .init(44100.0, 15.0) };
+    const single: WaveSource = .init(44100.0, .{ .single = .{ .waveform = .triangle } });
+    const dual: WaveSource = .init(44100.0, .{ .dual = .{ .waveform = .square, .detune_cents = 10.0 } });
+    const supersaw: WaveSource = .init(44100.0, .{ .super_saw = .{ .detune_cents = 15.0 } });
 
     // exhaustiveness
     const coproduct = @typeInfo(WaveSource).@"union".fields.len;
@@ -48,5 +68,7 @@ test "interface invariant" {
         }
         // renderSkip: callable
         source.renderSkip(&buffer, 440.0);
+        // sampleRate: callable
+        _ = source.sampleRate();
     }
 }

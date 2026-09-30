@@ -114,6 +114,14 @@ pub fn renderSkip(self: *SuperSaw, buffer: []const f32, frequency: f64) void {
     }
 }
 
+pub fn sampleRate(self: SuperSaw) f64 {
+    const sample_rate = self.oscillators[0].sample_rate;
+    inline for (1..7) |i| {
+        assert(sample_rate == self.oscillators[i].sample_rate);
+    }
+    return sample_rate;
+}
+
 test "chunk invariance" {
     const testing = std.testing;
 
