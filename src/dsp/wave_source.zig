@@ -35,12 +35,6 @@ pub const WaveSource = union(enum) {
         }
     }
 
-    pub fn sampleRate(self: WaveSource) f64 {
-        return switch (self) {
-            inline else => |*source| source.sampleRate(),
-        };
-    }
-
     pub const Single = @import("wave_source/Single.zig");
     pub const Dual = @import("wave_source/Dual.zig");
     pub const SuperSaw = @import("wave_source/SuperSaw.zig");
@@ -68,7 +62,5 @@ test "interface invariant" {
         }
         // renderSkip: callable
         source.renderSkip(&buffer, 440.0);
-        // sampleRate: callable
-        _ = source.sampleRate();
     }
 }

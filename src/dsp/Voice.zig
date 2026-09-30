@@ -7,6 +7,7 @@ const WaveSource = dsp.WaveSource;
 const std = @import("std");
 const assert = std.debug.assert;
 
+sample_rate: f64,
 source: WaveSource,
 envelope: AdsrEnvelope,
 frequency: f64 = dsp.pitch.a4hz_default,
@@ -24,6 +25,7 @@ pub fn init(sample_rate: f64, params: Params) Voice {
     const src: WaveSource = .init(sample_rate, params.source);
     const env: AdsrEnvelope = .init(sample_rate, params.envelope);
     return .{
+        .sample_rate = sample_rate,
         .source = src,
         .envelope = env,
     };
@@ -34,7 +36,7 @@ pub fn init(sample_rate: f64, params: Params) Voice {
 /// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteOn(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
-    assert(frequency < 0.5 * self.source.sampleRate());
+    assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
     self.envelope.trigger();
 }
@@ -49,7 +51,7 @@ pub fn noteOff(self: *Voice) void {
 /// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteMove(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
-    assert(frequency < 0.5 * self.source.sampleRate());
+    assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
 }
 
