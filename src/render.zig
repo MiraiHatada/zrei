@@ -18,7 +18,7 @@ pub const VoiceType = enum {
     square,
     super_saw,
 
-    pub fn construct(self: VoiceType, sample_rate: u32, envelope: AdsrEnvelope.Params) Voice {
+    pub fn build(self: VoiceType, sample_rate: u32, envelope: AdsrEnvelope.Params) Voice {
         return switch (self) {
             .sine => .init(sample_rate, .{ .source = .{ .single = .{ .waveform = .sine } }, .envelope = envelope }),
             .saw => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .saw, .detune_cents = 20.0 } }, .envelope = envelope }),
@@ -64,7 +64,7 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, voice_type: VoiceType, sec: u16) 
         .sustain_level = 0.5,
         .release_sec = 0.1,
     };
-    const voice = VoiceType.construct(voice_type, sample_rate, envelope);
+    const voice = VoiceType.build(voice_type, sample_rate, envelope);
     const notes: [12]Note = .{
         .init(.C4, 1.0, 0.8),  .init(.D4, 0.5, 0.8),
         .init(.E4, 0.5, 0.8),  .init(.F4, 0.5, 0.8),

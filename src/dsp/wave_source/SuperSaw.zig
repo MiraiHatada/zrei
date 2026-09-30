@@ -36,7 +36,7 @@ const total_gain: f32 = 3.4;
 const norm_factor: f32 = 1.0 / total_gain;
 
 /// initialize 7-saw ensemble with sample rate and detune in cents.
-/// "cent" here means semitone devided into 100 pieces. whole 1 octave has 1200 cents.
+/// "cent" here means semitone divided into 100 pieces. whole 1 octave has 1200 cents.
 pub fn init(sample_rate: f64, detune_cents: f64) SuperSaw {
     var self: SuperSaw = .{
         .oscillators = undefined,

@@ -14,7 +14,7 @@ detune_ratio1: f64,
 detune_ratio2: f64,
 
 /// initialize dual oscillator with sample rate, waveform, and detune in cents.
-/// "cent" here means semitone devided into 100 pieces. whole 1 octave has 1200 cents.
+/// "cent" here means semitone divided into 100 pieces. whole 1 octave has 1200 cents.
 pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, detune_cents: f64) Dual {
     var self: Dual = .{
         .osc1 = .init(sample_rate),
@@ -57,7 +57,7 @@ pub fn render(self: *Dual, buffer: []f32, frequency: f64) void {
         self.osc1.render(chunk, freq1, self.waveform);
         self.osc2.render(temp, freq2, self.waveform);
 
-        // add up two samples and devide by 2
+        // add up two samples and divide by 2
         for (chunk, temp) |*sample1, sample2| {
             const raw = (sample1.* + sample2) * 0.5;
             sample1.* = std.math.clamp(raw, -1.0, 1.0);
