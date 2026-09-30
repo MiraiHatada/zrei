@@ -2,6 +2,7 @@
 const format = @import("format.zig");
 const dsp = @import("dsp.zig");
 const Oscillator = dsp.Oscillator;
+const AdsrEnvelope = dsp.AdsrEnvelope;
 const Sequencer = dsp.Sequencer;
 const Voice = dsp.Voice;
 const Tuning = dsp.pitch.Tuning;
@@ -10,13 +11,31 @@ const std = @import("std");
 const Io = std.Io;
 const assert = std.debug.assert;
 
+pub const VoiceType = enum {
+    sine,
+    saw,
+    triangle,
+    square,
+    super_saw,
+
+    pub fn build(self: VoiceType, sample_rate: u32, envelope: AdsrEnvelope.Params) Voice {
+        return switch (self) {
+            .sine => .init(sample_rate, .{ .source = .{ .single = .{ .waveform = .sine } }, .envelope = envelope }),
+            .saw => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .saw, .detune_cents = 20.0 } }, .envelope = envelope }),
+            .triangle => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .triangle, .detune_cents = 20.0 } }, .envelope = envelope }),
+            .square => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .square, .detune_cents = 20.0 } }, .envelope = envelope }),
+            .super_saw => .init(sample_rate, .{ .source = .{ .super_saw = .{ .detune_cents = 50.0 } }, .envelope = envelope }),
+        };
+    }
+};
+
 pub const RenderWav = enum {
     ok,
     exceeded_4gb,
     samplerate_too_low,
 };
 
-pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, sec: u16) Io.Writer.Error!RenderWav {
+pub fn wav(sink: *Io.Writer, sample_rate: u32, voice_type: VoiceType, sec: u16) Io.Writer.Error!RenderWav {
     if (sample_rate < 30000) {
         // G9 approx 12,543 Hz in A4 440Hz, it's nyquist for sample rate of the double of it.
         // drawing a line with room, though i am not confident about this value
@@ -39,12 +58,13 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, se
     var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
     const tuning: Tuning = .init(440.0, .equal);
-    const voice: Voice = .init(sample_rate, waveform, .{
+    const envelope: AdsrEnvelope.Params = .{
         .attack_sec = 0.05,
         .decay_sec = 0.1,
         .sustain_level = 0.5,
         .release_sec = 0.1,
-    });
+    };
+    const voice = VoiceType.build(voice_type, sample_rate, envelope);
     const notes: [12]Note = .{
         .init(.C4, 1.0, 0.8),  .init(.D4, 0.5, 0.8),
         .init(.E4, 0.5, 0.8),  .init(.F4, 0.5, 0.8),
@@ -58,8 +78,8 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, waveform: Oscillator.WaveForm, se
         const chunk_size = @min(samples_size - offset, buffer.len);
         const chunk: []f32 = buffer[0..chunk_size];
         seq.render(chunk);
-        const data = format.wav.encodePcm16(&buffer_i16_raw, chunk);
-        try sink.writeAll(data);
+        const window = format.wav.encodePcm16(&buffer_i16_raw, chunk);
+        try sink.writeAll(window);
         offset += chunk_size;
     }
     assert(offset == samples_size);

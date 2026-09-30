@@ -3,6 +3,7 @@
 //! , because table has only 128 floatpoints and remain 1KB (fits in L1)
 //! , and table is whether "initialized only once" or "drastically changing" as nature
 //! , that convinces having the table runtime.
+
 const std = @import("std");
 const assert = std.debug.assert;
 
@@ -142,7 +143,7 @@ pub const Tuning = struct {
         const tonic_hz = a4hz * std.math.pow(f64, 2.0, tonic_semitone_steps / 12.0);
 
         for (0..128) |i| {
-            const diff: i32 = @as(i32, @intCast(i)) - @as(i32, @intCast(tonic_step));
+            const diff: i32 = @as(i32, @intCast(i)) - @as(i32, tonic_step);
             const oct: i32 = @divFloor(diff, 12);
             const semi: usize = @intCast(@mod(diff, 12));
             const ratio = just_ratios[semi];

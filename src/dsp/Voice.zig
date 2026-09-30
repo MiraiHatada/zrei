@@ -2,27 +2,32 @@
 const Voice = @This();
 
 const dsp = @import("../dsp.zig");
-const Oscillator = dsp.Oscillator;
 const AdsrEnvelope = dsp.AdsrEnvelope;
+const WaveSource = dsp.WaveSource;
 const std = @import("std");
 const assert = std.debug.assert;
 
-oscillator: Oscillator,
+sample_rate: f64,
+source: WaveSource,
 envelope: AdsrEnvelope,
 frequency: f64 = dsp.pitch.a4hz_default,
-waveform: Oscillator.WaveForm,
+
+pub const Params = struct {
+    source: WaveSource.Params,
+    envelope: AdsrEnvelope.Params,
+};
 
 /// initialize voice, ensure consistency between oscillator and envelope
 ///
-/// * assume `adsr_params.sustain_level` within [0.0, 1.0]
-pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, adsr_params: AdsrEnvelope.Params) Voice {
-    assert(0.0 <= adsr_params.sustain_level and adsr_params.sustain_level <= 1.0);
-    const osc: Oscillator = .init(sample_rate);
-    const env: AdsrEnvelope = .init(sample_rate, adsr_params);
+/// * assume `params.envelope.sustain_level` within [0.0, 1.0]
+pub fn init(sample_rate: f64, params: Params) Voice {
+    assert(0.0 <= params.envelope.sustain_level and params.envelope.sustain_level <= 1.0);
+    const src: WaveSource = .init(sample_rate, params.source);
+    const env: AdsrEnvelope = .init(sample_rate, params.envelope);
     return .{
-        .oscillator = osc,
+        .sample_rate = sample_rate,
+        .source = src,
         .envelope = env,
-        .waveform = waveform,
     };
 }
 
@@ -31,7 +36,7 @@ pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, adsr_params: AdsrEn
 /// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteOn(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
-    assert(frequency < 0.5 * self.oscillator.sample_rate);
+    assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
     self.envelope.trigger();
 }
@@ -46,7 +51,7 @@ pub fn noteOff(self: *Voice) void {
 /// * assume `frequency` is positive and lower than nyquist frequency
 pub fn noteMove(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
-    assert(frequency < 0.5 * self.oscillator.sample_rate);
+    assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
 }
 
@@ -58,10 +63,10 @@ pub fn render(self: *Voice, buffer: []f32) void {
     assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
         @memset(buffer, 0.0);
-        self.oscillator.renderSkip(buffer, self.frequency);
+        self.source.renderSkip(buffer, self.frequency);
         return;
     }
-    self.oscillator.render(buffer, self.frequency, self.waveform);
+    self.source.render(buffer, self.frequency);
     self.envelope.apply(buffer);
 }
 
@@ -73,12 +78,18 @@ pub fn active(self: Voice) bool {
 test "render note cycle" {
     const testing = std.testing;
 
-    var voice: Voice = .init(1000.0, .sine, .{
-        .attack_sec = 0.01,
-        .decay_sec = 0.01,
-        .sustain_level = 0.5,
-        .release_sec = 0.02,
-    });
+    const params: Params = .{
+        .source = .{
+            .single = .{ .waveform = .sine },
+        },
+        .envelope = .{
+            .attack_sec = 0.01,
+            .decay_sec = 0.01,
+            .sustain_level = 0.5,
+            .release_sec = 0.02,
+        },
+    };
+    var voice: Voice = .init(1000.0, params);
     var buffer: [20]f32 = undefined;
 
     voice.noteOn(100.0);
@@ -101,12 +112,18 @@ test "render note cycle" {
 test "render in chunk, facade" {
     const testing = std.testing;
 
-    var voice1: Voice = .init(1000.0, .saw, .{
-        .attack_sec = 0.02,
-        .decay_sec = 0.02,
-        .sustain_level = 0.6,
-        .release_sec = 0.02,
-    });
+    const params: Params = .{
+        .source = .{
+            .dual = .{ .waveform = .square, .detune_cents = 20.0 },
+        },
+        .envelope = .{
+            .attack_sec = 0.02,
+            .decay_sec = 0.02,
+            .sustain_level = 0.6,
+            .release_sec = 0.02,
+        },
+    };
+    var voice1: Voice = .init(1000.0, params);
     var voice2 = voice1;
 
     voice1.noteOn(100.0);
