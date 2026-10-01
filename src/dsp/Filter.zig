@@ -59,21 +59,17 @@ pub fn init(sample_rate: f64, params: Params) Filter {
 /// * `sample_rate` in Hz, assume it to be positive.
 /// * `cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
 /// * `q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
+/// * all invariants above are ignored when given `mode` is `.bypass`
 pub fn configure(self: *Filter, mode: Mode, sample_rate: f64, cutoff_hz: f64, q: f64) void {
     self.mode = mode;
-    const mode_not_bypass: enum { lowpass, highpass, bandpass } = switch (mode) {
-        .bypass => {
-            self.b0 = 1.0;
-            self.b1 = 0.0;
-            self.b2 = 0.0;
-            self.a1 = 0.0;
-            self.a2 = 0.0;
-            return;
-        },
-        .lowpass => .lowpass,
-        .highpass => .highpass,
-        .bandpass => .bandpass,
-    };
+    if (self.mode == .bypass) {
+        self.b0 = 1.0;
+        self.b1 = 0.0;
+        self.b2 = 0.0;
+        self.a1 = 0.0;
+        self.a2 = 0.0;
+        return;
+    }
     assert(sample_rate > 0.0);
     assert(0.0 < cutoff_hz);
     assert(cutoff_hz < sample_rate * 0.5);
@@ -94,7 +90,8 @@ pub fn configure(self: *Filter, mode: Mode, sample_rate: f64, cutoff_hz: f64, q:
     const a1: f64 = -2.0 * cos_w;
     const a2: f64 = 1.0 - alpha;
 
-    switch (mode_not_bypass) {
+    switch (mode) {
+        .bypass => unreachable,
         .lowpass => {
             b0 = (1.0 - cos_w) * 0.5;
             b1 = 1.0 - cos_w;
