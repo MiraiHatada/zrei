@@ -155,10 +155,10 @@ test "bypass invariance" {
     try testing.expectEqual(-0.9, buffer[3]);
 }
 
-test "pass dc in lowpass and block in highpass" {
+test "pass dc in lowpass and block in highpass and bandpass" {
     const testing = std.testing;
 
-    const dc: f32 = 1.0; // effing socket on the wall
+    const dc: f32 = 1.0; // <- ac/dc <- socket (ac) <- power plant
 
     // lowpass passes dc
     {
@@ -178,6 +178,17 @@ test "pass dc in lowpass and block in highpass" {
         var out: f32 = 0.0;
         for (0..200) |_| {
             out = hpf.process(dc);
+        }
+        try testing.expectApproxEqAbs(0.0, out, 1e-4);
+    }
+
+    // bandpass blocks dc
+    {
+        var bpf: Filter = .{};
+        bpf.configure(.bandpass, 44100.0, 1000.0, 1.5);
+        var out: f32 = 0.0;
+        for (0..200) |_| {
+            out = bpf.process(dc);
         }
         try testing.expectApproxEqAbs(0.0, out, 1e-4);
     }
