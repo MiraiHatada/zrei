@@ -138,10 +138,8 @@ pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
 
 /// process a single sample.
 ///
-/// * [important] assume `self.mode` it not `.bypass`.
-fn process(self: *Filter, sample_in: f32) f32 {
-    assert(self.mode != .bypass);
-
+/// * [important] assume `self.mode` it not `.bypass`, never checked.
+inline fn process(self: *Filter, sample_in: f32) f32 {
     // see the module document comment for detail
     const sample_out: f32 = self.b0 * sample_in + self.s1;
     self.s1 = self.b1 * sample_in - self.a1 * sample_out + self.s2;
@@ -150,7 +148,7 @@ fn process(self: *Filter, sample_in: f32) f32 {
 }
 
 /// apply filter to buffer in-place.
-pub fn apply(self: *Filter, buffer: []f32) void {
+pub fn apply(self: *Filter, noalias buffer: []f32) void {
     if (self.mode == .bypass) return;
     for (buffer) |*sample| {
         sample.* = self.process(sample.*);
