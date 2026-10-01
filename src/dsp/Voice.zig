@@ -2,32 +2,39 @@
 const Voice = @This();
 
 const dsp = @import("../dsp.zig");
-const AdsrEnvelope = dsp.AdsrEnvelope;
 const WaveSource = dsp.WaveSource;
+const Filter = dsp.Filter;
+const AdsrEnvelope = dsp.AdsrEnvelope;
 const std = @import("std");
 const assert = std.debug.assert;
 
 sample_rate: f64,
 source: WaveSource,
+filter: Filter,
 envelope: AdsrEnvelope,
 frequency: f64 = dsp.pitch.a4hz_default,
 
 pub const Params = struct {
     source: WaveSource.Params,
+    filter: Filter.Params,
     envelope: AdsrEnvelope.Params,
 };
 
-/// initialize voice, ensure consistency between oscillator and envelope
+/// initialize voice, ensure consistency between oscillator and envelope.
 ///
-/// * assume `params.envelope.sustain_level` within [0.0, 1.0]
+/// * assume `sample_rate` to be positive.
+/// * assume `params.envelope.sustain_level` within [0.0, 1.0].
+/// * assume `params.filter.[!bypass].cutoff_hz` to be positive and lower than the nyquist frequency.
+/// * assume `params.filter.[!bypass].q` to be positive.
 pub fn init(sample_rate: f64, params: Params) Voice {
-    assert(0.0 <= params.envelope.sustain_level);
-    assert(params.envelope.sustain_level <= 1.0);
+    assert(sample_rate > 0.0);
     const src: WaveSource = .init(sample_rate, params.source);
+    const filter: Filter = .init(sample_rate, params.filter);
     const env: AdsrEnvelope = .init(sample_rate, params.envelope);
     return .{
         .sample_rate = sample_rate,
         .source = src,
+        .filter = filter,
         .envelope = env,
     };
 }
@@ -39,6 +46,10 @@ pub fn noteOn(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
     assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
+    if (self.envelope.state == .idle) {
+        // idle → attack shall be a complete restart without resonance
+        self.filter.reset();
+    }
     self.envelope.trigger();
 }
 
@@ -60,7 +71,7 @@ pub fn noteMove(self: *Voice, frequency: f64) void {
 ///
 /// * `buffer` is modified in place
 /// * assume `buffer` is non-empty
-pub fn render(self: *Voice, buffer: []f32) void {
+pub fn render(self: *Voice, noalias buffer: []f32) void {
     assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
         @memset(buffer, 0.0);
@@ -68,6 +79,7 @@ pub fn render(self: *Voice, buffer: []f32) void {
         return;
     }
     self.source.render(buffer, self.frequency);
+    self.filter.apply(buffer);
     self.envelope.apply(buffer);
 }
 
@@ -80,9 +92,8 @@ test "render note cycle" {
     const testing = std.testing;
 
     const params: Params = .{
-        .source = .{
-            .single = .{ .waveform = .sine },
-        },
+        .source = .{ .single = .{ .waveform = .sine } },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.01,
             .decay_sec = 0.01,
@@ -114,9 +125,8 @@ test "render in chunk, facade" {
     const testing = std.testing;
 
     const params: Params = .{
-        .source = .{
-            .dual = .{ .waveform = .square, .detune_cents = 20.0 },
-        },
+        .source = .{ .dual = .{ .waveform = .square, .detune_cents = 20.0 } },
+        .filter = .{ .lowpass = .{ .cutoff_hz = 150.0, .q = 2.0 } },
         .envelope = .{
             .attack_sec = 0.02,
             .decay_sec = 0.02,
@@ -141,4 +151,39 @@ test "render in chunk, facade" {
     for (0..64) |i| {
         try testing.expectApproxEqAbs(first[i], second[i], 1e-6);
     }
+}
+
+test "reset filter on idle note" {
+    const testing = std.testing;
+
+    const params: Params = .{
+        .source = .{ .super_saw = .{ .detune_cents = 40.0 } },
+        .filter = .{ .lowpass = .{ .cutoff_hz = 150.0, .q = 2.0 } },
+        .envelope = .{
+            .attack_sec = 0.01,
+            .decay_sec = 0.01,
+            .sustain_level = 0.5,
+            .release_sec = 0.01,
+        },
+    };
+    var voice: Voice = .init(1000.0, params);
+    var buffer: [64]f32 = undefined;
+
+    voice.noteOn(100.0);
+    voice.render(&buffer);
+    const previous = voice.filter.s1;
+    try testing.expect(previous != 0.0);
+
+    // legato note-on
+    voice.noteOn(150.0);
+    try testing.expectEqual(previous, voice.filter.s1);
+
+    // non legato note-on
+    voice.noteOff();
+    voice.render(&buffer);
+    voice.render(&buffer);
+    try testing.expectEqual(false, voice.active());
+    voice.noteOn(100.0);
+    try testing.expectEqual(0.0, voice.filter.s1);
+    try testing.expectEqual(0.0, voice.filter.s2);
 }

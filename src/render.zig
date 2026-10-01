@@ -1,7 +1,7 @@
 //! waveform rendering pipeline
 const format = @import("format.zig");
 const dsp = @import("dsp.zig");
-const Oscillator = dsp.Oscillator;
+const Filter = dsp.Filter;
 const AdsrEnvelope = dsp.AdsrEnvelope;
 const Sequencer = dsp.Sequencer;
 const Voice = dsp.Voice;
@@ -18,13 +18,13 @@ pub const VoiceType = enum {
     square,
     super_saw,
 
-    pub fn build(self: VoiceType, sample_rate: u32, envelope: AdsrEnvelope.Params) Voice {
+    pub fn build(self: VoiceType, sample_rate: u32, filter: Filter.Params, envelope: AdsrEnvelope.Params) Voice {
         return switch (self) {
-            .sine => .init(sample_rate, .{ .source = .{ .single = .{ .waveform = .sine } }, .envelope = envelope }),
-            .saw => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .saw, .detune_cents = 20.0 } }, .envelope = envelope }),
-            .triangle => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .triangle, .detune_cents = 20.0 } }, .envelope = envelope }),
-            .square => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .square, .detune_cents = 20.0 } }, .envelope = envelope }),
-            .super_saw => .init(sample_rate, .{ .source = .{ .super_saw = .{ .detune_cents = 50.0 } }, .envelope = envelope }),
+            .sine => .init(sample_rate, .{ .source = .{ .single = .{ .waveform = .sine } }, .filter = filter, .envelope = envelope }),
+            .saw => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .saw, .detune_cents = 20.0 } }, .filter = filter, .envelope = envelope }),
+            .triangle => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .triangle, .detune_cents = 20.0 } }, .filter = filter, .envelope = envelope }),
+            .square => .init(sample_rate, .{ .source = .{ .dual = .{ .waveform = .square, .detune_cents = 20.0 } }, .filter = filter, .envelope = envelope }),
+            .super_saw => .init(sample_rate, .{ .source = .{ .super_saw = .{ .detune_cents = 50.0 } }, .filter = filter, .envelope = envelope }),
         };
     }
 };
@@ -58,13 +58,19 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, voice_type: VoiceType, sec: u16) 
     var buffer_i16_raw: [512 * 2]u8 = undefined;
     var offset: usize = 0;
     const tuning: Tuning = .init(440.0, .equal);
+    const filter: Filter.Params = .{
+        .lowpass = .{
+            .cutoff_hz = 1200.0,
+            .q = 1.0 / @sqrt(2.0),
+        },
+    };
     const envelope: AdsrEnvelope.Params = .{
         .attack_sec = 0.05,
         .decay_sec = 0.1,
         .sustain_level = 0.5,
         .release_sec = 0.1,
     };
-    const voice = VoiceType.build(voice_type, sample_rate, envelope);
+    const voice = VoiceType.build(voice_type, sample_rate, filter, envelope);
     const notes: [12]Note = .{
         .init(.C4, 1.0, 0.8),  .init(.D4, 0.5, 0.8),
         .init(.E4, 0.5, 0.8),  .init(.F4, 0.5, 0.8),

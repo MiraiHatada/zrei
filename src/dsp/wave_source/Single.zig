@@ -15,7 +15,7 @@ pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm) Single {
     };
 }
 
-pub fn render(self: *Single, buffer: []f32, frequency: f64) void {
+pub fn render(self: *Single, noalias buffer: []f32, frequency: f64) void {
     self.oscillator.render(buffer, frequency, self.waveform);
     for (buffer) |*s| {
         s.* = std.math.clamp(s.*, -1.0, 1.0);

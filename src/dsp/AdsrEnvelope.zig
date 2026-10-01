@@ -49,7 +49,7 @@ pub fn init(sample_rate: f64, params: Params) AdsrEnvelope {
 /// apply envelope to sample buffer, `buffer` is modified in place
 ///
 /// * assume `buffer` is non-empty
-pub fn apply(self: *AdsrEnvelope, buffer: []f32) void {
+pub fn apply(self: *AdsrEnvelope, noalias buffer: []f32) void {
     assert(buffer.len > 0);
     var offset: usize = 0;
     while (offset < buffer.len) {
@@ -146,7 +146,7 @@ fn secs2samples(self: AdsrEnvelope, seconds: f64) usize {
     return @intFromFloat(@round(seconds * self.sample_rate));
 }
 
-fn consume(self: *AdsrEnvelope, buffer: []f32) usize {
+fn consume(self: *AdsrEnvelope, noalias buffer: []f32) usize {
     assert(buffer.len > 0);
     switch (self.state) {
         .idle => {

@@ -23,7 +23,7 @@ pub const WaveSource = union(enum) {
         };
     }
 
-    pub fn render(self: *WaveSource, buffer: []f32, frequency: f64) void {
+    pub fn render(self: *WaveSource, noalias buffer: []f32, frequency: f64) void {
         switch (self.*) {
             inline else => |*source| source.render(buffer, frequency),
         }

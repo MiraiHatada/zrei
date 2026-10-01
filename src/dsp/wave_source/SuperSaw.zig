@@ -68,7 +68,7 @@ pub fn setDetune(self: *SuperSaw, detune_cents: f64) void {
 /// render 7-saw ensemble into `buffer`.
 ///
 /// * outputs are strictly normalized and bounded to [-1.0, 1.0]
-pub fn render(self: *SuperSaw, buffer: []f32, frequency: f64) void {
+pub fn render(self: *SuperSaw, noalias buffer: []f32, frequency: f64) void {
     // nyquist guards
     const lim_nyquist = self.oscillators[0].sample_rate * 0.499;
     var freqs: [7]f64 = undefined;

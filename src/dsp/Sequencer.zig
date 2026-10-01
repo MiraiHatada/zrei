@@ -108,7 +108,7 @@ fn advance(self: *Sequencer) void {
 /// render melody into `buffer`
 ///
 /// * assume `buffer` is non-empty
-pub fn render(self: *Sequencer, buffer: []f32) void {
+pub fn render(self: *Sequencer, noalias buffer: []f32) void {
     assert(buffer.len > 0);
     var offset: usize = 0;
 
@@ -180,6 +180,7 @@ test "render single note" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .sine } },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.01,
             .decay_sec = 0.01,
@@ -221,6 +222,7 @@ test "render in chunk, super facade" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .saw } },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.02,
             .decay_sec = 0.02,
@@ -257,6 +259,7 @@ test "real life spec" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .sine } },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.001,
             .decay_sec = 0.001,
