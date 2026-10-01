@@ -52,6 +52,10 @@ pub fn noteOn(self: *Voice, frequency: f64) void {
     assert(frequency > 0.0);
     assert(frequency < 0.5 * self.sample_rate);
     self.frequency = frequency;
+    if (self.envelope.state == .idle) {
+        // idle → attack shall be a complete restart without resonance
+        self.filter.reset();
+    }
     self.envelope.trigger();
 }
 
