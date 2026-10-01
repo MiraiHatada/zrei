@@ -81,6 +81,7 @@ pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
             self.b2 = 0.0;
             self.a1 = 0.0;
             self.a2 = 0.0;
+            self.reset();
             return;
         },
         .lowpass, .highpass, .bandpass => |common| {
