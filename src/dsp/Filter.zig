@@ -56,8 +56,8 @@ pub const Params = union(Mode) {
 /// not in-place version of `configure`.
 ///
 /// 1. `sample_rate` in Hz, assume it to be positive.
-/// 2. `params.cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
-/// 3. `params.q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
+/// 2. `params.[!bypass].cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
+/// 3. `params.[!bypass].q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
 /// 4. invariants of (2.) and (3.) are ignored when given `mode` is `.bypass`
 pub fn init(sample_rate: f64, params: Params) Filter {
     var filter: Filter = .{};
@@ -68,8 +68,8 @@ pub fn init(sample_rate: f64, params: Params) Filter {
 /// configure filter coefficients for specified mode and frequency.
 ///
 /// 1. `sample_rate` in Hz, assume it to be positive.
-/// 2. `params.cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
-/// 3. `params.q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
+/// 2. `params.[!bypass].cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
+/// 3. `params.[!bypass].q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
 /// 4. invariants of (2.) and (3.) are ignored when given `mode` is `.bypass`
 pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
     assert(sample_rate > 0.0);
@@ -138,7 +138,7 @@ pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
 
 /// process a single sample.
 ///
-/// * [important] assume `self.mode` it not `.bypass`, never checked.
+/// * [important] assume `self.mode` is not `.bypass`, never checked.
 inline fn process(self: *Filter, sample_in: f32) f32 {
     // see the module document comment for detail
     const sample_out: f32 = self.b0 * sample_in + self.s1;
