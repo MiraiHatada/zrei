@@ -92,9 +92,7 @@ test "render note cycle" {
     const testing = std.testing;
 
     const params: Params = .{
-        .source = .{
-            .single = .{ .waveform = .sine },
-        },
+        .source = .{ .single = .{ .waveform = .sine } },
         .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.01,
@@ -127,10 +125,8 @@ test "render in chunk, facade" {
     const testing = std.testing;
 
     const params: Params = .{
-        .source = .{
-            .dual = .{ .waveform = .square, .detune_cents = 20.0 },
-        },
-        .filter = .bypass,
+        .source = .{ .dual = .{ .waveform = .square, .detune_cents = 20.0 } },
+        .filter = .{ .lowpass = .{ .cutoff_hz = 150.0, .q = 2.0 } },
         .envelope = .{
             .attack_sec = 0.02,
             .decay_sec = 0.02,
@@ -155,4 +151,39 @@ test "render in chunk, facade" {
     for (0..64) |i| {
         try testing.expectApproxEqAbs(first[i], second[i], 1e-6);
     }
+}
+
+test "reset filter on idle note" {
+    const testing = std.testing;
+
+    const params: Params = .{
+        .source = .{ .super_saw = .{ .detune_cents = 40.0 } },
+        .filter = .{ .lowpass = .{ .cutoff_hz = 150.0, .q = 2.0 } },
+        .envelope = .{
+            .attack_sec = 0.01,
+            .decay_sec = 0.01,
+            .sustain_level = 0.5,
+            .release_sec = 0.01,
+        },
+    };
+    var voice: Voice = .init(1000.0, params);
+    var buffer: [64]f32 = undefined;
+
+    voice.noteOn(100.0);
+    voice.render(&buffer);
+    const previous = voice.filter.s1;
+    try testing.expect(previous != 0.0);
+
+    // legato note-on
+    voice.noteOn(150.0);
+    try testing.expectEqual(previous, voice.filter.s1);
+
+    // non legato note-on
+    voice.noteOff();
+    voice.render(&buffer);
+    voice.render(&buffer);
+    try testing.expectEqual(false, voice.active());
+    voice.noteOn(100.0);
+    try testing.expectEqual(0.0, voice.filter.s1);
+    try testing.expectEqual(0.0, voice.filter.s2);
 }
