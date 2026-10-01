@@ -81,6 +81,7 @@ pub fn render(self: *Voice, buffer: []f32) void {
         return;
     }
     self.source.render(buffer, self.frequency);
+    self.filter.apply(buffer);
     self.envelope.apply(buffer);
 }
 
