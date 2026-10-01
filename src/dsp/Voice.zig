@@ -24,16 +24,10 @@ pub const Params = struct {
 ///
 /// * assume `sample_rate` to be positive.
 /// * assume `params.envelope.sustain_level` within [0.0, 1.0].
-/// * assume `params.filter.cutoff_hz` to be positive and lower than the nyquist frequency.
-/// * assume `params.filter.q` to be positive.
+/// * assume `params.filter.[!bypass].cutoff_hz` to be positive and lower than the nyquist frequency.
+/// * assume `params.filter.[!bypass].q` to be positive.
 pub fn init(sample_rate: f64, params: Params) Voice {
     assert(sample_rate > 0.0);
-    assert(0.0 <= params.envelope.sustain_level);
-    assert(params.envelope.sustain_level <= 1.0);
-    assert(0.0 < params.filter.cutoff_hz);
-    assert(params.filter.cutoff_hz < sample_rate * 0.5);
-    assert(params.filter.q > 0.0);
-
     const src: WaveSource = .init(sample_rate, params.source);
     const filter: Filter = .init(sample_rate, params.filter);
     const env: AdsrEnvelope = .init(sample_rate, params.envelope);
@@ -101,11 +95,7 @@ test "render note cycle" {
         .source = .{
             .single = .{ .waveform = .sine },
         },
-        .filter = .{
-            .mode = .bypass,
-            .cutoff_hz = 100.0,
-            .q = 0.7071,
-        },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.01,
             .decay_sec = 0.01,
@@ -140,11 +130,7 @@ test "render in chunk, facade" {
         .source = .{
             .dual = .{ .waveform = .square, .detune_cents = 20.0 },
         },
-        .filter = .{
-            .mode = .bypass,
-            .cutoff_hz = 100.0,
-            .q = 0.7071,
-        },
+        .filter = .bypass,
         .envelope = .{
             .attack_sec = 0.02,
             .decay_sec = 0.02,

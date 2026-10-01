@@ -41,81 +41,99 @@ mode: Mode = .bypass,
 
 pub const Mode = enum { bypass, lowpass, highpass, bandpass };
 
-pub const Params = struct {
-    mode: Mode,
-    cutoff_hz: f64,
-    q: f64,
+pub const Params = union(Mode) {
+    bypass,
+    lowpass: Common,
+    highpass: Common,
+    bandpass: Common,
+
+    const Common = struct {
+        cutoff_hz: f64,
+        q: f64,
+    };
 };
 
-/// not in-place version of `configure`. see `configure` for invariant details.
+/// not in-place version of `configure`.
+///
+/// 1. `sample_rate` in Hz, assume it to be positive.
+/// 2. `params.cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
+/// 3. `params.q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
+/// 4. invariants of (2.) and (3.) are ignored when given `mode` is `.bypass`
 pub fn init(sample_rate: f64, params: Params) Filter {
     var filter: Filter = .{};
-    filter.configure(params.mode, sample_rate, params.cutoff_hz, params.q);
+    filter.configure(sample_rate, params);
     return filter;
 }
 
 /// configure filter coefficients for specified mode and frequency.
 ///
-/// * `sample_rate` in Hz, assume it to be positive.
-/// * `cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
-/// * `q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
-/// * all invariants above are ignored when given `mode` is `.bypass`
-pub fn configure(self: *Filter, mode: Mode, sample_rate: f64, cutoff_hz: f64, q: f64) void {
-    self.mode = mode;
-    if (self.mode == .bypass) {
-        self.b0 = 1.0;
-        self.b1 = 0.0;
-        self.b2 = 0.0;
-        self.a1 = 0.0;
-        self.a2 = 0.0;
-        return;
-    }
+/// 1. `sample_rate` in Hz, assume it to be positive.
+/// 2. `params.cutoff_hz` cutoff frequency in Hz, assume it to be positive and lower than the nyquist frequency.
+/// 3. `params.q` quality factor (resonance), assume it to be positive. `1/√2` to be flat.
+/// 4. invariants of (2.) and (3.) are ignored when given `mode` is `.bypass`
+pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
     assert(sample_rate > 0.0);
-    assert(0.0 < cutoff_hz);
-    assert(cutoff_hz < sample_rate * 0.5);
-    assert(q > 0.0);
-
-    // actual complex conjugate calculation
-    const omega: f64 = (2.0 * std.math.pi * cutoff_hz) / sample_rate;
-    const cos_w: f64 = @cos(omega);
-    const sin_w: f64 = @sin(omega);
-    const alpha: f64 = sin_w / (2.0 * q);
-
-    // we don't "always" need f64 precision because this component has no accumulation
-    // use these only while actual calculation
-    var b0: f64 = 1.0;
-    var b1: f64 = 0.0;
-    var b2: f64 = 0.0;
-    const a0: f64 = 1.0 + alpha;
-    const a1: f64 = -2.0 * cos_w;
-    const a2: f64 = 1.0 - alpha;
-
-    switch (mode) {
-        .bypass => unreachable,
-        .lowpass => {
-            b0 = (1.0 - cos_w) * 0.5;
-            b1 = 1.0 - cos_w;
-            b2 = (1.0 - cos_w) * 0.5;
+    self.mode = params;
+    switch (params) {
+        .bypass => {
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
+            return;
         },
-        .highpass => {
-            b0 = (1.0 + cos_w) * 0.5;
-            b1 = -(1.0 + cos_w);
-            b2 = (1.0 + cos_w) * 0.5;
-        },
-        .bandpass => {
-            b0 = alpha;
-            b1 = 0.0;
-            b2 = -alpha;
+        .lowpass, .highpass, .bandpass => |common| {
+            const cutoff_hz = common.cutoff_hz;
+            const q = common.q;
+
+            assert(0.0 < cutoff_hz);
+            assert(cutoff_hz < sample_rate * 0.5);
+            assert(q > 0.0);
+
+            // actual complex conjugate calculation
+            const omega: f64 = (2.0 * std.math.pi * cutoff_hz) / sample_rate;
+            const cos_w: f64 = @cos(omega);
+            const sin_w: f64 = @sin(omega);
+            const alpha: f64 = sin_w / (2.0 * q);
+
+            // we don't "always" need f64 precision because this component has no accumulation
+            // use these only while actual calculation
+            var b0: f64 = 1.0;
+            var b1: f64 = 0.0;
+            var b2: f64 = 0.0;
+            const a0: f64 = 1.0 + alpha;
+            const a1: f64 = -2.0 * cos_w;
+            const a2: f64 = 1.0 - alpha;
+
+            switch (params) {
+                .bypass => unreachable,
+                .lowpass => {
+                    b0 = (1.0 - cos_w) * 0.5;
+                    b1 = 1.0 - cos_w;
+                    b2 = (1.0 - cos_w) * 0.5;
+                },
+                .highpass => {
+                    b0 = (1.0 + cos_w) * 0.5;
+                    b1 = -(1.0 + cos_w);
+                    b2 = (1.0 + cos_w) * 0.5;
+                },
+                .bandpass => {
+                    b0 = alpha;
+                    b1 = 0.0;
+                    b2 = -alpha;
+                },
+            }
+
+            // a0 normalization
+            const inv_a0: f64 = 1.0 / a0;
+            self.b0 = @floatCast(b0 * inv_a0);
+            self.b1 = @floatCast(b1 * inv_a0);
+            self.b2 = @floatCast(b2 * inv_a0);
+            self.a1 = @floatCast(a1 * inv_a0);
+            self.a2 = @floatCast(a2 * inv_a0);
         },
     }
-
-    // a0 normalization
-    const inv_a0: f64 = 1.0 / a0;
-    self.b0 = @floatCast(b0 * inv_a0);
-    self.b1 = @floatCast(b1 * inv_a0);
-    self.b2 = @floatCast(b2 * inv_a0);
-    self.a1 = @floatCast(a1 * inv_a0);
-    self.a2 = @floatCast(a2 * inv_a0);
 }
 
 /// process a single sample.
@@ -163,7 +181,10 @@ test "pass dc in lowpass and block in highpass and bandpass" {
     // lowpass passes dc
     {
         var lpf: Filter = .{};
-        lpf.configure(.lowpass, 44100.0, 1000.0, (1.0 / @sqrt(2.0)));
+        lpf.configure(44100.0, .{ .lowpass = .{
+            .cutoff_hz = 1000.0,
+            .q = (1.0 / @sqrt(2.0)),
+        } });
         var out: f32 = 0.0;
         for (0..200) |_| {
             out = lpf.process(dc);
@@ -174,7 +195,10 @@ test "pass dc in lowpass and block in highpass and bandpass" {
     // highpass blocks dc
     {
         var hpf: Filter = .{};
-        hpf.configure(.highpass, 44100.0, 1000.0, (1.0 / @sqrt(2.0)));
+        hpf.configure(44100.0, .{ .highpass = .{
+            .cutoff_hz = 1000.0,
+            .q = (1.0 / @sqrt(2.0)),
+        } });
         var out: f32 = 0.0;
         for (0..200) |_| {
             out = hpf.process(dc);
@@ -185,7 +209,10 @@ test "pass dc in lowpass and block in highpass and bandpass" {
     // bandpass blocks dc
     {
         var bpf: Filter = .{};
-        bpf.configure(.bandpass, 44100.0, 1000.0, 1.5);
+        bpf.configure(44100.0, .{ .bandpass = .{
+            .cutoff_hz = 1000.0,
+            .q = 1.5,
+        } });
         var out: f32 = 0.0;
         for (0..200) |_| {
             out = bpf.process(dc);
@@ -199,8 +226,8 @@ test "apply in chunk" {
 
     var f1: Filter = .{};
     var f2: Filter = .{};
-    f1.configure(.lowpass, 44100.0, 800.0, 2.0);
-    f2.configure(.lowpass, 44100.0, 800.0, 2.0);
+    f1.configure(44100.0, .{ .lowpass = .{ .cutoff_hz = 800.0, .q = 2.0 } });
+    f2.configure(44100.0, .{ .lowpass = .{ .cutoff_hz = 800.0, .q = 2.0 } });
 
     var buffer1: [64]f32 = undefined;
     var buffer2: [64]f32 = undefined;
