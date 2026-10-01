@@ -2,32 +2,45 @@
 const Voice = @This();
 
 const dsp = @import("../dsp.zig");
-const AdsrEnvelope = dsp.AdsrEnvelope;
 const WaveSource = dsp.WaveSource;
+const Filter = dsp.Filter;
+const AdsrEnvelope = dsp.AdsrEnvelope;
 const std = @import("std");
 const assert = std.debug.assert;
 
 sample_rate: f64,
 source: WaveSource,
+filter: Filter,
 envelope: AdsrEnvelope,
 frequency: f64 = dsp.pitch.a4hz_default,
 
 pub const Params = struct {
     source: WaveSource.Params,
+    filter: Filter.Params,
     envelope: AdsrEnvelope.Params,
 };
 
-/// initialize voice, ensure consistency between oscillator and envelope
+/// initialize voice, ensure consistency between oscillator and envelope.
 ///
-/// * assume `params.envelope.sustain_level` within [0.0, 1.0]
+/// * assume `sample_rate` to be positive.
+/// * assume `params.envelope.sustain_level` within [0.0, 1.0].
+/// * assume `params.filter.cutoff_hz` to be positive and lower than the nyquist frequency.
+/// * assume `params.filter.q` to be positive.
 pub fn init(sample_rate: f64, params: Params) Voice {
+    assert(sample_rate > 0.0);
     assert(0.0 <= params.envelope.sustain_level);
     assert(params.envelope.sustain_level <= 1.0);
+    assert(0.0 < params.filter.cutoff_hz);
+    assert(params.filter.cutoff_hz < sample_rate * 0.5);
+    assert(params.filter.q > 0.0);
+
     const src: WaveSource = .init(sample_rate, params.source);
+    const filter: Filter = .init(sample_rate, params.filter);
     const env: AdsrEnvelope = .init(sample_rate, params.envelope);
     return .{
         .sample_rate = sample_rate,
         .source = src,
+        .filter = filter,
         .envelope = env,
     };
 }
@@ -83,6 +96,11 @@ test "render note cycle" {
         .source = .{
             .single = .{ .waveform = .sine },
         },
+        .filter = .{
+            .mode = .bypass,
+            .cutoff_hz = 100.0,
+            .q = 0.7071,
+        },
         .envelope = .{
             .attack_sec = 0.01,
             .decay_sec = 0.01,
@@ -116,6 +134,11 @@ test "render in chunk, facade" {
     const params: Params = .{
         .source = .{
             .dual = .{ .waveform = .square, .detune_cents = 20.0 },
+        },
+        .filter = .{
+            .mode = .bypass,
+            .cutoff_hz = 100.0,
+            .q = 0.7071,
         },
         .envelope = .{
             .attack_sec = 0.02,

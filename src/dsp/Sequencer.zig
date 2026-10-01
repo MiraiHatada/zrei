@@ -180,6 +180,7 @@ test "render single note" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .sine } },
+        .filter = .{ .mode = .bypass, .cutoff_hz = 100.0, .q = 0.7071 },
         .envelope = .{
             .attack_sec = 0.01,
             .decay_sec = 0.01,
@@ -221,6 +222,7 @@ test "render in chunk, super facade" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .saw } },
+        .filter = .{ .mode = .bypass, .cutoff_hz = 100.0, .q = 0.7071 },
         .envelope = .{
             .attack_sec = 0.02,
             .decay_sec = 0.02,
@@ -257,6 +259,7 @@ test "real life spec" {
 
     const params: Voice.Params = .{
         .source = .{ .single = .{ .waveform = .sine } },
+        .filter = .{ .mode = .bypass, .cutoff_hz = 100.0, .q = 0.7071 },
         .envelope = .{
             .attack_sec = 0.001,
             .decay_sec = 0.001,

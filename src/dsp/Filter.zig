@@ -41,6 +41,19 @@ mode: Mode = .bypass,
 
 pub const Mode = enum { bypass, lowpass, highpass, bandpass };
 
+pub const Params = struct {
+    mode: Filter.Mode,
+    cutoff_hz: f64,
+    q: f64,
+};
+
+/// not in-place version of `configure`. see `configure` for invariant details.
+pub fn init(sample_rate: f64, params: Params) Filter {
+    var filter: Filter = .{};
+    filter.configure(params.mode, sample_rate, params.cutoff_hz, params.q);
+    return filter;
+}
+
 /// configure filter coefficients for specified mode and frequency.
 ///
 /// * `sample_rate` in Hz, assume it to be positive.
@@ -62,7 +75,7 @@ pub fn configure(self: *Filter, mode: Mode, sample_rate: f64, cutoff_hz: f64, q:
         .bandpass => .bandpass,
     };
     assert(sample_rate > 0.0);
-    assert(cutoff_hz > 0.0);
+    assert(0.0 < cutoff_hz);
     assert(cutoff_hz < sample_rate * 0.5);
     assert(q > 0.0);
 
