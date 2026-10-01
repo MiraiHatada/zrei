@@ -30,7 +30,7 @@ pub fn init(sample_rate: f64) Oscillator {
 /// an oscillator
 ///
 /// * assumes `frequency` is lower than the nyquist frequency
-pub fn render(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm) void {
+pub fn render(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm) void {
     self.renderInner(buffer, frequency, waveform, .vector);
 }
 
@@ -46,7 +46,7 @@ pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
 }
 
 /// internally accept the scalar `mode` for examination
-fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveForm, comptime mode: Mode) void {
+fn renderInner(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm, comptime mode: Mode) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
     // frequency < nyquist_frequency
@@ -70,7 +70,7 @@ fn renderInner(self: *Oscillator, buffer: []f32, frequency: f64, waveform: WaveF
     }
 }
 
-inline fn renderLoop(self: *Oscillator, buffer: []f32, dt: f64, comptime sampler: fn (f32, f32) f32) void {
+inline fn renderLoop(self: *Oscillator, noalias buffer: []f32, dt: f64, comptime sampler: fn (f32, f32) f32) void {
     const delta32: f32 = @floatCast(dt);
     for (buffer) |*sample| {
         // sine wave doesn't have a jump
@@ -86,7 +86,7 @@ inline fn renderLoop(self: *Oscillator, buffer: []f32, dt: f64, comptime sampler
 
 inline fn renderLoopV(
     self: *Oscillator,
-    buffer: []f32,
+    noalias buffer: []f32,
     dt: f64,
     comptime samplerV: fn (VecF32, VecF32) VecF32,
     comptime samplerScalar: fn (f32, f32) f32,

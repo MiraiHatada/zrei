@@ -39,7 +39,7 @@ pub fn setDetune(self: *Dual, detune_cents: f64) void {
 /// render dual oscillator into `buffer`.
 ///
 /// * outputs are strictly normalized and bounded to [-1.0, 1.0]
-pub fn render(self: *Dual, buffer: []f32, frequency: f64) void {
+pub fn render(self: *Dual, noalias buffer: []f32, frequency: f64) void {
     // nyquist guard
     const lim_nyquist = self.osc1.sample_rate * 0.499;
     const freq1 = @min(frequency * self.detune_ratio1, lim_nyquist);

@@ -71,7 +71,7 @@ pub fn noteMove(self: *Voice, frequency: f64) void {
 ///
 /// * `buffer` is modified in place
 /// * assume `buffer` is non-empty
-pub fn render(self: *Voice, buffer: []f32) void {
+pub fn render(self: *Voice, noalias buffer: []f32) void {
     assert(buffer.len > 0);
     if (self.envelope.state == .idle) {
         @memset(buffer, 0.0);

@@ -108,7 +108,7 @@ fn advance(self: *Sequencer) void {
 /// render melody into `buffer`
 ///
 /// * assume `buffer` is non-empty
-pub fn render(self: *Sequencer, buffer: []f32) void {
+pub fn render(self: *Sequencer, noalias buffer: []f32) void {
     assert(buffer.len > 0);
     var offset: usize = 0;
 
