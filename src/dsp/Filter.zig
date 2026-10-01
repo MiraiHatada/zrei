@@ -42,7 +42,7 @@ mode: Mode = .bypass,
 pub const Mode = enum { bypass, lowpass, highpass, bandpass };
 
 pub const Params = struct {
-    mode: Filter.Mode,
+    mode: Mode,
     cutoff_hz: f64,
     q: f64,
 };
