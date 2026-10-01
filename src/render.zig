@@ -59,9 +59,9 @@ pub fn wav(sink: *Io.Writer, sample_rate: u32, voice_type: VoiceType, sec: u16) 
     var offset: usize = 0;
     const tuning: Tuning = .init(440.0, .equal);
     const filter: Filter.Params = .{
-        .mode = .bypass,
-        .cutoff_hz = 1000.0,
-        .q = 0.7071,
+        .mode = .lowpass,
+        .cutoff_hz = 900.0,
+        .q = 4.0,
     };
     const envelope: AdsrEnvelope.Params = .{
         .attack_sec = 0.05,
