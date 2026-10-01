@@ -209,8 +209,8 @@ fn sampleSquareV(phase: VecF32, dt: VecF32) VecF32 {
 /// * use `SAMPLE(t) - polyblep(t)` as a corrected value
 /// * may also use `SAMPLE(t) + polyblep(t)` as an upside-down correction (i.e. jump)
 inline fn polyblep(phase: f32, dt: f32) f32 {
+    assert(0.0 <= phase);
     assert(phase <= 1.0); // our phase is [0.0, 1.0) ; well, but the definition is.
-    assert(phase >= 0.0);
     // phase within [0.0, dt)
     if (phase < dt) {
         // normalized step (the first step after fall down)
@@ -264,8 +264,8 @@ inline fn polyblepV(phase: VecF32, dt: VecF32) VecF32 {
 /// * `SAMPLE(t) + (k * polyblamp(t))` for mountain top correction
 /// * the same stands for valley bottom correction
 inline fn polyblamp(phase: f32, dt: f32) f32 {
+    assert(0.0 <= phase);
     assert(phase <= 1.0);
-    assert(phase >= 0.0);
 
     // the step right after mountaintop
     if (phase < dt) {
@@ -319,7 +319,7 @@ test "render sine wave" {
     osc.render(&buffer, 440.0, .sine);
 
     // sin(0) is always 0 (wtf)
-    try testing.expectApproxEqAbs(@as(f32, 0.0), buffer[0], 1e-5);
+    try testing.expectApproxEqAbs(0.0, buffer[0], 1e-5);
 
     // all samples are within [-1.0, 1.0]
     for (buffer) |s| {
@@ -341,8 +341,8 @@ test "render wave vector same as scalar" {
 
         try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-5);
 
-        for (0..515) |idx| {
-            try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-5);
+        for (0..515) |i| {
+            try testing.expectApproxEqAbs(buf_s[i], buf_v[i], 1e-5);
         }
     }
 }

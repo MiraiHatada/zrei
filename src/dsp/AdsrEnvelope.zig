@@ -38,7 +38,8 @@ pub const Params = struct {
 ///
 /// * assume `params.sustain_level` within [0.0, 1.0]
 pub fn init(sample_rate: f64, params: Params) AdsrEnvelope {
-    assert(0.0 <= params.sustain_level and params.sustain_level <= 1.0);
+    assert(0.0 <= params.sustain_level);
+    assert(params.sustain_level <= 1.0);
     return .{
         .sample_rate = sample_rate,
         .params = params,
