@@ -341,8 +341,8 @@ test "render wave vector same as scalar" {
 
         try testing.expectApproxEqAbs(osc_s.phase, osc_v.phase, 1e-5);
 
-        for (0..515) |idx| {
-            try testing.expectApproxEqAbs(buf_s[idx], buf_v[idx], 1e-5);
+        for (0..515) |i| {
+            try testing.expectApproxEqAbs(buf_s[i], buf_v[i], 1e-5);
         }
     }
 }
