@@ -2,7 +2,7 @@ const zrei = @import("zrei");
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
-const StringHashMap = std.StringHashMapUnmanaged;
+const StringHashMap = std.StringHashMap;
 
 pub fn main(init: std.process.Init) !u8 {
     const io = init.io;
@@ -66,23 +66,20 @@ const Command = enum {
 const Parser = struct {
     options: StringHashMap([]const u8),
     argument: ?[]const u8,
-    allocator: Allocator,
 
     pub fn init(allocator: Allocator) Parser {
         return .{
-            .options = .empty,
+            .options = .init(allocator),
             .argument = null,
-            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Parser) void {
-        self.options.deinit(self.allocator);
+        self.options.deinit();
         self.* = undefined;
     }
 
     pub fn parse(self: *Parser, args: []const []const u8) Allocator.Error!void {
-        const allocator = self.allocator;
         var i: usize = 0;
         while (i < args.len) : (i += 1) {
             const arg = args[i];
@@ -94,12 +91,12 @@ const Parser = struct {
                 if (std.mem.indexOfScalar(u8, raw, '=')) |equal_index| {
                     const key = raw[0..equal_index];
                     const val = raw[equal_index + 1 ..];
-                    try self.options.put(allocator, key, val);
+                    try self.options.put(key, val);
                 } else if (i + 1 < args.len and !std.mem.startsWith(u8, args[i + 1], "-")) {
                     i += 1;
-                    try self.options.put(allocator, raw, args[i]);
+                    try self.options.put(raw, args[i]);
                 } else {
-                    try self.options.put(allocator, raw, "");
+                    try self.options.put(raw, "");
                 }
             } else {
                 if (self.argument == null) {

@@ -280,7 +280,7 @@ test "real life spec" {
 
     // 0.25 beat 100 notes = 25 beats
     // 130 BPM = 130/60 beat per sec = 60/130 sec per beat = 60 / 130 * 48000 samples per beat
-    const ideal_total_samples = @as(usize, @intFromFloat(@round(25.0 * (60.0 / 130.0) * 48000.0)));
+    const ideal_total_samples: usize = @intFromFloat(@round(25.0 * (60.0 / 130.0) * 48000.0));
     try testing.expectEqual(ideal_total_samples, seq.note_end_sample);
     try testing.expectEqual(.complete, seq.state);
 }

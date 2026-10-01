@@ -319,7 +319,7 @@ test "render sine wave" {
     osc.render(&buffer, 440.0, .sine);
 
     // sin(0) is always 0 (wtf)
-    try testing.expectApproxEqAbs(@as(f32, 0.0), buffer[0], 1e-5);
+    try testing.expectApproxEqAbs(0.0, buffer[0], 1e-5);
 
     // all samples are within [-1.0, 1.0]
     for (buffer) |s| {
