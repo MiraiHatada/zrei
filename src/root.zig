@@ -19,6 +19,7 @@ test {
     _ = @import("dsp/Voice.zig");
     _ = @import("dsp/Note.zig");
     _ = @import("dsp/Sequencer.zig");
+    _ = @import("dsp/Filter.zig");
     _ = @import("format/wav.zig");
     _ = @import("render.zig");
 }
