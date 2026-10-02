@@ -32,7 +32,7 @@ pub fn init(sample_rate: f64) Oscillator {
 
 /// an oscillator.
 ///
-/// * assumes `frequency` is lower than the nyquist frequency.
+/// * assume `frequency` is positive and lower than the nyquist frequency.
 pub fn render(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm) void {
     self.renderInner(buffer, frequency, waveform, .vector);
 }
@@ -52,8 +52,9 @@ pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
 fn renderInner(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm, comptime mode: Mode) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;
-    // frequency < nyquist_frequency
+    // 0 < frequency < nyquist_frequency
     // an interesting behaviour where dt = 0.5; sine wave always points to 0
+    assert(0.0 < dt);
     assert(dt < 0.5);
 
     if (mode == .scalar) {

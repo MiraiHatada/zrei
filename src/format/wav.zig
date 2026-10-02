@@ -37,9 +37,11 @@ pub const Header = struct {
     ///
     /// * `error.Exceeded4Gb` when whole data > 4GB
     /// * assume `format.channels` to be positive
+    /// * assume `format.sample_rate` to be positive
     /// * assume `format.bits_per_sample` divisible by 8
     pub fn init(format: Format, frame_count: usize) Error!Header {
         assert(format.channels > 0);
+        assert(format.sample_rate > 0);
         assert(format.bits_per_sample % 8 == 0);
         const bytes_per_sample: u16 = format.bits_per_sample / 8;
         const block_align: u16 = format.channels * bytes_per_sample;
@@ -112,7 +114,7 @@ pub fn createHeader(format: Format, samples_size: usize) Header.Error![44]u8 {
 /// encode `samples` into i16 (quantized) and copy it to `out`
 /// and returns it as slice
 ///
-/// * assume `out.len` is at least twice `source.len`
+/// * assume `out.len` is at least twice `samples.len`
 pub fn encodePcm16(out: []u8, samples: []const f32) []const u8 {
     const bytes_total = samples.len * 2;
     assert(out.len >= bytes_total);

@@ -92,15 +92,20 @@ pub const Tuning = struct {
         15.0 / 8.0, // M7, leading note (15/8)
     };
 
-    /// initialize pitch table with given A4 frequency and system
+    /// initialize pitch table with given A4 frequency and system.
+    ///
+    /// * assume `a4hz` to be positive.
     pub fn init(a4hz: f64, comptime system: System) Tuning {
         var self: Tuning = undefined;
         self.inplace(a4hz, system);
         return self;
     }
 
-    /// initialize pitch table with given A4 frequency and system (inplace)
+    /// initialize pitch table with given A4 frequency and system (inplace).
+    ///
+    /// * assume `a4hz` to be positive.
     pub fn inplace(self: *Tuning, a4hz: f64, comptime system: System) void {
+        assert(a4hz > 0.0);
         self.a4hz = a4hz;
         self.system = system;
         self.tonic = .C4;
