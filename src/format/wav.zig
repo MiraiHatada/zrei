@@ -36,8 +36,8 @@ pub const Header = struct {
     /// initialize RIFF WAV header struct
     ///
     /// * `error.Exceeded4Gb` when whole data > 4GB
-    /// * `format.channels` must be at least 1
-    /// * `format.bits_per_sample` must be divisible by 8
+    /// * assume `format.channels` to be positive
+    /// * assume `format.bits_per_sample` divisible by 8
     pub fn init(format: Format, frame_count: usize) Error!Header {
         assert(format.channels > 0);
         assert(format.bits_per_sample % 8 == 0);
@@ -100,8 +100,8 @@ inline fn quantize16i(sample: f32) i16 {
 
 /// create RIFF WAV header in little endian as `[44]u8`
 ///
-/// * assume `format.channels` > 0
-/// * `samples_size` must be divisible by `format.channels`
+/// * assume `format.channels` to be positive
+/// * assume `samples_size` divisible by `format.channels`
 pub fn createHeader(format: Format, samples_size: usize) Header.Error![44]u8 {
     assert(format.channels > 0);
     assert(samples_size % format.channels == 0);

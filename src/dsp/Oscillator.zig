@@ -19,24 +19,27 @@ const VecF32 = @Vector(4, f32);
 /// sampling mode (scalar version for testing)
 const Mode = enum { scalar, vector };
 
-/// `sample_rate` typically 44.1kHz or 48kHz
+/// `sample_rate` typically 44.1kHz or 48kHz.
+///
+/// * assume `sample_rate` to be positive.
 pub fn init(sample_rate: f64) Oscillator {
+    assert(sample_rate > 0.0);
     return .{
         .phase = 0.0,
         .sample_rate = sample_rate,
     };
 }
 
-/// an oscillator
+/// an oscillator.
 ///
-/// * assumes `frequency` is lower than the nyquist frequency
+/// * assumes `frequency` is lower than the nyquist frequency.
 pub fn render(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm) void {
     self.renderInner(buffer, frequency, waveform, .vector);
 }
 
-/// increment phase without actual rendering
+/// increment phase without actual rendering.
 ///
-/// `frequency` here doesn't have the nyquist invariant, just in case a rest note is put first in a row
+/// `frequency` here doesn't have the nyquist invariant, just in case a rest note is put first in a row.
 pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
     const dt = frequency / self.sample_rate;
     const delta_phase = dt * @as(f64, @floatFromInt(buffer.len));
@@ -45,7 +48,7 @@ pub fn renderSkip(self: *Oscillator, buffer: []const f32, frequency: f64) void {
     if (self.phase >= 1.0 - 1e-12) self.phase = 0.0;
 }
 
-/// internally accept the scalar `mode` for examination
+/// internally accept the scalar `mode` for examination.
 fn renderInner(self: *Oscillator, noalias buffer: []f32, frequency: f64, waveform: WaveForm, comptime mode: Mode) void {
     // delta phi : how fast phase increases
     const dt = frequency / self.sample_rate;

@@ -4,7 +4,6 @@ const SuperSaw = @This();
 const dsp = @import("../../dsp.zig");
 const Oscillator = dsp.Oscillator;
 const std = @import("std");
-const assert = std.debug.assert;
 
 oscillators: [7]Oscillator,
 detune_cents: f64,
@@ -37,6 +36,8 @@ const norm_factor: f32 = 1.0 / total_gain;
 
 /// initialize 7-saw ensemble with sample rate and detune in cents.
 /// "cent" here means semitone divided into 100 pieces. whole 1 octave has 1200 cents.
+///
+/// * assume `sample_rate` to be positive.
 pub fn init(sample_rate: f64, detune_cents: f64) SuperSaw {
     var self: SuperSaw = .{
         .oscillators = undefined,
