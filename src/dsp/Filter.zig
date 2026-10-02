@@ -82,7 +82,6 @@ pub fn configure(self: *Filter, sample_rate: f64, params: Params) void {
             self.a1 = 0.0;
             self.a2 = 0.0;
             self.reset();
-            return;
         },
         .lowpass, .highpass, .bandpass => |common| {
             const cutoff_hz = common.cutoff_hz;

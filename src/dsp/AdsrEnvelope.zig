@@ -34,10 +34,12 @@ pub const Params = struct {
     release_sec: f64,
 };
 
-/// initialize adsr envelope
+/// initialize adsr envelope.
 ///
-/// * assume `params.sustain_level` within [0.0, 1.0]
+/// * assume `sample_rate` to be positive.
+/// * assume `params.sustain_level` within [0.0, 1.0].
 pub fn init(sample_rate: f64, params: Params) AdsrEnvelope {
+    assert(sample_rate > 0.0);
     assert(0.0 <= params.sustain_level);
     assert(params.sustain_level <= 1.0);
     return .{
@@ -147,7 +149,6 @@ fn secs2samples(self: AdsrEnvelope, seconds: f64) usize {
 }
 
 fn consume(self: *AdsrEnvelope, noalias buffer: []f32) usize {
-    assert(buffer.len > 0);
     switch (self.state) {
         .idle => {
             @memset(buffer, 0.0);

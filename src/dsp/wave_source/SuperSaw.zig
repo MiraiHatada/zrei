@@ -37,6 +37,9 @@ const norm_factor: f32 = 1.0 / total_gain;
 
 /// initialize 7-saw ensemble with sample rate and detune in cents.
 /// "cent" here means semitone divided into 100 pieces. whole 1 octave has 1200 cents.
+///
+/// * assume `sample_rate` to be positive.
+/// * assume `detune_cents` to be non-negative.
 pub fn init(sample_rate: f64, detune_cents: f64) SuperSaw {
     var self: SuperSaw = .{
         .oscillators = undefined,
@@ -56,8 +59,11 @@ pub fn init(sample_rate: f64, detune_cents: f64) SuperSaw {
     return self;
 }
 
-/// set detune width in cents and update cached frequency ratios
+/// set detune width in cents and update cached frequency ratios.
+///
+/// * assume `detune_cents` to be non-negative.
 pub fn setDetune(self: *SuperSaw, detune_cents: f64) void {
+    assert(detune_cents >= 0.0);
     self.detune_cents = detune_cents;
     for (0..7) |i| {
         const cents = self.detune_cents * detune_weights[i];

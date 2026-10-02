@@ -15,6 +15,9 @@ detune_ratio2: f64,
 
 /// initialize dual oscillator with sample rate, waveform, and detune in cents.
 /// "cent" here means semitone divided into 100 pieces. whole 1 octave has 1200 cents.
+///
+/// * assume `sample_rate` to be positive.
+/// * assume `detune_cents` to be non-negative.
 pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, detune_cents: f64) Dual {
     var self: Dual = .{
         .osc1 = .init(sample_rate),
@@ -28,8 +31,11 @@ pub fn init(sample_rate: f64, waveform: Oscillator.WaveForm, detune_cents: f64) 
     return self;
 }
 
-/// set detune width in cents and update cached frequency ratio
+/// set detune width in cents and update cached frequency ratio.
+///
+/// * assume `detune_cents` to be non-negative.
 pub fn setDetune(self: *Dual, detune_cents: f64) void {
+    assert(detune_cents >= 0.0);
     self.detune_cents = detune_cents;
     const half_cents = self.detune_cents * 0.5;
     self.detune_ratio1 = std.math.pow(f64, 2.0, -half_cents / 1200.0);

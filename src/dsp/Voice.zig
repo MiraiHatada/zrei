@@ -23,6 +23,7 @@ pub const Params = struct {
 /// initialize voice, ensure consistency between oscillator and envelope.
 ///
 /// * assume `sample_rate` to be positive.
+/// * assume `params.source.[!single].detune_cents` to be non-negative.
 /// * assume `params.envelope.sustain_level` within [0.0, 1.0].
 /// * assume `params.filter.[!bypass].cutoff_hz` to be positive and lower than the nyquist frequency.
 /// * assume `params.filter.[!bypass].q` to be positive.

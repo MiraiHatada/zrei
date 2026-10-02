@@ -5,7 +5,6 @@
 //! this module provides an extended sin(x) for vectors, however supposed to be removed once `@sin` gets improved
 
 const std = @import("std");
-const assert = std.debug.assert;
 
 pub const VecF32 = @Vector(4, f32);
 
