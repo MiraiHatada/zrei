@@ -48,7 +48,7 @@ test "interface invariant" {
     const supersaw: WaveSource = .init(44100.0, .{ .super_saw = .{ .detune_cents = 15.0 } });
 
     // exhaustiveness
-    const coproduct = @typeInfo(WaveSource).@"union".fields.len;
+    const coproduct = @typeInfo(WaveSource).@"union".field_names.len;
     var sources: [coproduct]WaveSource = .{ single, dual, supersaw };
 
     // interface

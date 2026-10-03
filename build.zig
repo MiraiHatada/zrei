@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(main_compile);
     const main_run = b.addRunArtifact(main_compile);
     main_run.step.dependOn(b.getInstallStep());
-    if (b.args) |args| main_run.addArgs(args);
+    main_run.addPassthruArgs();
 
     const test_zrei = b.addTest(.{
         .name = "zrei_test",

@@ -54,11 +54,11 @@ pub const Letter = enum(u7) {
     _,
 
     pub inline fn toInt(self: Letter) u7 {
-        return @intFromEnum(self);
+        return @backingInt(self);
     }
 
     pub inline fn fromInt(value: u7) Letter {
-        return @enumFromInt(value);
+        return @fromBackingInt(value);
     }
 };
 
@@ -133,7 +133,7 @@ pub const Tuning = struct {
 
     /// note frequency in Hz
     pub inline fn hzOfNoteLetter(self: Tuning, letter: Letter) f64 {
-        return self.table[@intFromEnum(letter)];
+        return self.table[@backingInt(letter)];
     }
 
     /// frequency of a note number (midi) in Hz

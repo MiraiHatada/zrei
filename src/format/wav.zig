@@ -75,7 +75,7 @@ pub const Header = struct {
         bytes[8..12].* = "WAVE".*;
         bytes[12..16].* = "fmt ".*;
         std.mem.writeInt(u32, bytes[16..20], 16, .little); // fmt_size
-        std.mem.writeInt(u16, bytes[20..22], @intFromEnum(self.format_code), .little);
+        std.mem.writeInt(u16, bytes[20..22], @backingInt(self.format_code), .little);
         std.mem.writeInt(u16, bytes[22..24], self.channels, .little);
         std.mem.writeInt(u32, bytes[24..28], self.samples_per_sec, .little);
         std.mem.writeInt(u32, bytes[28..32], self.average_bytes_per_sec, .little);
