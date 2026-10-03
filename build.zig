@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(main_compile);
     const main_run = b.addRunArtifact(main_compile);
     main_run.step.dependOn(b.getInstallStep());
-    if (b.args) |args| main_run.addArgs(args);
+    main_run.addPassthruArgs();
 
     const test_zrei = b.addTest(.{
         .name = "zrei_test",
@@ -45,7 +45,10 @@ pub fn build(b: *std.Build) void {
     test_cmd.dependOn(&test_zrei_run.step);
     test_cmd.dependOn(&test_main_run.step);
 
-    const check_cmd = b.step("check", "check if it compiles (zls)");
+    // # NOTE
+    // the check step is initially prepared for zls functionality
+    // but zls is dead for the time being (https://ziglang.org/download/0.17.0/release-notes.html#Build-Server-Protocol)
+    const check_cmd = b.step("check", "check if it compiles");
     check_cmd.dependOn(&main_compile.step);
     check_cmd.dependOn(&test_zrei.step);
     check_cmd.dependOn(&test_main.step);
